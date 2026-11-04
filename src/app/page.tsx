@@ -1047,19 +1047,24 @@ export default function Home() {
                 </select>
               </label>
             </div>
-            <label className="owner-check">
-              <input type="checkbox" checked={ownerOnly} onChange={(event) => setOwnerOnly(event.target.checked)} />
-              <span className="checkmark" />
-              Direct owner listings only
-            </label>
-            <div className="search-extra">
-              <label>Minimum price (PKR)<input type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="No minimum" /></label>
-              <label>Maximum price (PKR)<input type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="No maximum" /></label>
-              <label>Bedrooms<select value={minBedrooms} onChange={(event) => setMinBedrooms(event.target.value)}><option value="">Any</option>{[1, 2, 3, 4, 5].map((number) => <option key={number} value={number}>{number}+ bedrooms</option>)}</select></label>
-              <label>Size unit<select value={sizeUnit} onChange={(event) => setSizeUnit(event.target.value)}><option>Marla</option><option>Kanal</option><option>sq ft</option><option>sq yd</option><option>Acres</option></select></label>
-              <label>Minimum size<input type="number" min="0" step="any" value={minSize} onChange={(event) => setMinSize(event.target.value)} placeholder="Any" /></label>
-              <label>Maximum size<input type="number" min="0" step="any" value={maxSize} onChange={(event) => setMaxSize(event.target.value)} placeholder="Any" /></label>
-            </div>
+            <details className="advanced-filters">
+              <summary>More filters <span>+</span></summary>
+              <div className="advanced-filters-content">
+                <label className="owner-check">
+                  <input type="checkbox" checked={ownerOnly} onChange={(event) => setOwnerOnly(event.target.checked)} />
+                  <span className="checkmark" />
+                  Direct owner listings only
+                </label>
+                <div className="search-extra">
+                  <label>Minimum price (PKR)<input type="number" min="0" value={minPrice} onChange={(event) => setMinPrice(event.target.value)} placeholder="No minimum" /></label>
+                  <label>Maximum price (PKR)<input type="number" min="0" value={maxPrice} onChange={(event) => setMaxPrice(event.target.value)} placeholder="No maximum" /></label>
+                  <label>Bedrooms<select value={minBedrooms} onChange={(event) => setMinBedrooms(event.target.value)}><option value="">Any</option>{[1, 2, 3, 4, 5].map((number) => <option key={number} value={number}>{number}+ bedrooms</option>)}</select></label>
+                  <label>Size unit<select value={sizeUnit} onChange={(event) => setSizeUnit(event.target.value)}><option>Marla</option><option>Kanal</option><option>sq ft</option><option>sq yd</option><option>Acres</option></select></label>
+                  <label>Minimum size<input type="number" min="0" step="any" value={minSize} onChange={(event) => setMinSize(event.target.value)} placeholder="Any" /></label>
+                  <label>Maximum size<input type="number" min="0" step="any" value={maxSize} onChange={(event) => setMaxSize(event.target.value)} placeholder="Any" /></label>
+                </div>
+              </div>
+            </details>
             <button className="button button-primary search-submit" type="submit"><Icon name="search" size={18} /> Find a property</button>
             <div className="search-caption"><span>⌖</span> Search live listings across Pakistan</div>
           </form>

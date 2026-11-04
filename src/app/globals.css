@@ -1,5 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap");
-
 :root {
   color-scheme: light;
   --ink: #172f35;
@@ -17,8 +15,8 @@
   --white: #fff;
 
   --font-display: "Iowan Old Style", "Palatino Linotype", "Book Antiqua", Georgia, serif;
-  --font-ui: "DM Sans", Arial, sans-serif;
-  --font-brand: "Manrope", "DM Sans", Arial, sans-serif;
+  --font-ui: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+  --font-brand: "Segoe UI", "Helvetica Neue", Arial, sans-serif;
   --text-xs: .75rem;
   --text-sm: .875rem;
   --text-base: 1rem;
@@ -655,4 +653,138 @@ a { color: inherit; text-decoration: none; }
   .immersive-art { min-height: 290px; }
   .immersive-model { transform: scale(.85); }
   .immersive-glass-card { right: 1%; bottom: 0; }
+}
+
+/* Lightweight visual refresh for the public marketplace. */
+.container { width: min(1240px, calc(100% - 72px)); }
+.announcement { height: 34px; background: #102b2d; }
+.site-header { height: 76px; background: rgba(255,255,255,.94); box-shadow: 0 5px 24px rgba(13,42,42,.035); }
+.brand-mark { width: 40px; height: 40px; border-radius: 13px 13px 13px 5px; background: linear-gradient(145deg, #218a7b, #12645e); box-shadow: 0 7px 16px rgba(22,118,110,.18); }
+.main-nav a { font-size: 12px; }
+.nav-post { min-height: 44px; padding: 0 18px; border-radius: 8px; }
+.button { border-radius: 9px; }
+.hero { min-height: 650px; background: #132f31; }
+.hero-image {
+  background-image: linear-gradient(90deg, rgba(10,34,37,.62), rgba(17,48,48,.15) 70%), url("/hero-estate.svg");
+  background-position: center, center 57%;
+  background-size: cover;
+  transform: none;
+}
+.hero-shade { background: linear-gradient(90deg, rgba(9,31,34,.82) 0%, rgba(12,39,41,.70) 39%, rgba(15,43,42,.23) 100%), linear-gradient(0deg, rgba(12,35,37,.52), transparent 34%); }
+.hero-content { grid-template-columns: minmax(0, 1fr) minmax(390px, 465px); gap: clamp(32px, 5vw, 76px); padding-top: 74px; padding-bottom: 85px; }
+.hero-copy { max-width: 600px; }
+.hero h1 { font-size: clamp(3.75rem, 6vw, 5.3rem); line-height: .99; letter-spacing: -.055em; }
+.hero-copy > p { max-width: 455px; font-size: 15px; line-height: 1.8; }
+.hero-proof { gap: 18px; margin-top: 29px; font-size: 11px; }
+.search-panel { padding: 25px; border: 1px solid rgba(255,255,255,.82); border-radius: 20px; box-shadow: 0 30px 80px rgba(8,28,30,.28); }
+.search-tabs { gap: 8px; padding-bottom: 15px; }
+.search-tabs button { min-height: 42px; border-radius: 9px; font-size: 12px; }
+.search-tabs button.active { color: #fff; background: var(--teal); box-shadow: 0 5px 13px rgba(22,118,110,.2); }
+.search-location { padding: 16px 0 12px; }
+.search-location input { height: 36px; font-size: 14px; }
+.search-selects { gap: 14px; padding: 15px 0 12px; }
+.search-selects label + label { padding-left: 14px; }
+.search-selects label > span { margin-bottom: 7px; font-size: 10px; }
+.search-selects select { min-height: 28px; font-size: 12px; }
+.advanced-filters { border-top: 1px solid #e8edeb; }
+.advanced-filters summary { display: flex; align-items: center; justify-content: space-between; padding: 12px 0; color: #52676a; font-size: 11px; font-weight: 650; list-style: none; cursor: pointer; }
+.advanced-filters summary::-webkit-details-marker { display: none; }
+.advanced-filters summary > span { width: 22px; height: 22px; display: grid; place-items: center; border: 1px solid #dfe8e4; border-radius: 50%; color: var(--teal); font-size: 16px; font-weight: 400; transition: transform .18s ease; }
+.advanced-filters[open] summary > span { transform: rotate(45deg); }
+.advanced-filters-content { padding-bottom: 5px; animation: filter-reveal .18s ease-out; }
+.advanced-filters .owner-check { padding: 4px 0 12px; font-size: 11px; }
+.search-extra { gap: 11px 13px; padding: 2px 0 15px; }
+.search-extra label { gap: 6px; font-size: 10px; }
+.search-extra input, .search-extra select { min-height: 39px; padding: 8px 10px; border-radius: 8px; font-size: 11px; }
+.search-submit { min-height: 50px; border-radius: 10px; font-size: 13px; }
+.search-caption { padding-top: 11px; font-size: 10px; }
+.hero-bottom-inner { font-size: 9px; }
+.trust-strip { background: #fcfdfb; }
+.trust-strip-inner { min-height: 104px; }
+.trust-strip-inner > div { gap: 15px; padding-left: 35px; }
+.trust-icon { width: 40px; height: 40px; background: #eaf4ef; font-size: 11px; }
+.trust-strip-inner b { font-size: 12px; }
+.trust-strip-inner small { font-size: 10px; }
+.section { padding: 88px 0; }
+.property-section { background: #f7f9f6; }
+.section-heading { margin-bottom: 34px; }
+.section-heading h2, .direct-card h2, .how-intro h2, .closing-inner h2 { letter-spacing: -.04em; }
+.section-heading > p { font-size: 13px; }
+.property-grid { gap: 22px; }
+.property-card { border-color: #e8eeea; border-radius: 15px; box-shadow: 0 4px 16px rgba(23,47,53,.035); }
+.property-card:hover { transform: translateY(-6px); box-shadow: 0 22px 48px rgba(20,52,60,.13); }
+.property-image { height: 244px; }
+.image-label { padding: 8px 10px; border-radius: 20px; font-size: 9px; letter-spacing: .08em; }
+.owner-label { padding: 8px 10px; border-radius: 20px; font-size: 8px; }
+.verification-pill { padding: 7px 10px; font-size: 9px; }
+.favorite-button { width: 38px; height: 38px; box-shadow: 0 4px 12px rgba(16,40,40,.12); }
+.property-info { padding: 19px 19px 17px; }
+.property-location { font-size: 10px; }
+.property-info h3 { margin: 10px 0 12px; font-size: 16px; }
+.listing-status-line { font-size: 9px; }
+.property-specs { gap: 15px; padding-bottom: 15px; font-size: 10px; }
+.property-price { font-size: 16px; }
+.property-price small { font-size: 8px; }
+.details-button { font-size: 10px; }
+.demo-disclaimer, .service-disclaimer { font-size: 10px; }
+.category-section { padding-top: 80px; background: #f2f5f0; }
+.category-card { min-height: 200px; padding: 24px; border-color: #e4eae4; border-radius: 14px; box-shadow: 0 4px 14px rgba(23,47,53,.025); }
+.category-card:hover { transform: translateY(-5px); box-shadow: 0 16px 34px rgba(30,53,55,.09); }
+.category-symbol { width: 44px; height: 44px; border-radius: 13px; }
+.category-name { font-size: 14px; }
+.category-count { font-size: 10px; }
+.direct-section { min-height: 570px; }
+.direct-photo { background: radial-gradient(ellipse at 82% 25%, rgba(148,180,161,.32), transparent 25%), radial-gradient(ellipse at 73% 80%, rgba(75,120,106,.35), transparent 32%), linear-gradient(110deg, #102f32, #1d514d 65%, #315e53); }
+.passport-card { border-radius: 16px; }
+.service-card { transition: background .2s ease, transform .2s ease; }
+.service-card:hover { transform: translateY(-3px); }
+.service-icon { border-radius: 13px; }
+.closing-cta { background: linear-gradient(105deg, #176b62, #1e766a); }
+.site-footer { background: #102b2d; }
+.mobile-bottom-nav { box-shadow: 0 -7px 25px rgba(25,49,53,.08); }
+
+@keyframes filter-reveal {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 1020px) {
+  .container { width: calc(100% - 48px); }
+  .nav-wrap { gap: 20px; }
+  .main-nav { gap: 14px; }
+  .nav-actions { gap: 13px; }
+  .hero-content { grid-template-columns: minmax(0, 1fr) minmax(360px, 430px); gap: 28px; }
+  .hero h1 { font-size: clamp(3.4rem, 5.8vw, 4.5rem); }
+}
+
+@media (max-width: 800px) {
+  .container { width: calc(100% - 42px); }
+  .hero { min-height: 0; }
+  .hero-content { grid-template-columns: 1fr 360px; gap: 23px; padding-top: 62px; padding-bottom: 84px; }
+  .hero h1 { font-size: 48px; }
+  .search-panel { padding: 20px; }
+}
+
+@media (max-width: 620px) {
+  .container { width: calc(100% - 36px); }
+  .hero-image { background-position: center, 62% center; }
+  .hero-content { grid-template-columns: 1fr; gap: 26px; padding-top: 48px; padding-bottom: 78px; }
+  .hero h1 { font-size: clamp(42px, 12vw, 56px); }
+  .hero-copy > p { font-size: 12px; }
+  .search-panel { padding: 18px; border-radius: 16px; }
+  .search-tabs button { min-height: 40px; }
+  .search-selects { gap: 10px; }
+  .trust-strip-inner { min-height: 86px; }
+  .trust-strip-inner b { font-size: 8px; }
+  .trust-strip-inner small { font-size: 7px; }
+  .section { padding: 62px 0; }
+  .property-image { height: 100%; }
+  .property-info { padding: 12px; }
+  .property-info h3 { font-size: 12px; }
+  .property-specs { font-size: 8px; }
+  .property-price { font-size: 12px; }
+  .category-card { min-height: 155px; padding: 16px 13px; }
+  .category-symbol { width: 36px; height: 36px; margin-bottom: 16px; }
+  .category-name { font-size: 11px; }
+  .category-count { font-size: 8px; }
 }
