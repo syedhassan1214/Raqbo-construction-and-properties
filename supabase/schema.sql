@@ -20,6 +20,11 @@ create table if not exists public.profiles (
   created_at  timestamptz not null default now()
 );
 
+-- Upgrade a profiles table left over from an older RAQBO setup.
+alter table public.profiles add column if not exists email text;
+alter table public.profiles add column if not exists verified boolean not null default false;
+alter table public.profiles add column if not exists verified_at timestamptz;
+
 -- Is the current user a RAQBO admin? (security definer avoids RLS recursion)
 create or replace function public.is_admin()
 returns boolean
