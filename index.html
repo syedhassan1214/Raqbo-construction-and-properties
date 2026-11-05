@@ -326,7 +326,7 @@ window.RAQBO_CONFIG = {
   supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVzYW11amNlY2tlZ2hhZ2FsbGVyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTM4NjM4NTUsImV4cCI6MjEwOTQzOTg1NX0.AgWD3Ksk9LOgq60JN2qcdsHVdOUGGa6e3DuAXuwH3eI',
   whatsappNumber: '923123140622',
   // Cloudflare Turnstile SITE key (spam protection on sign-in forms). Leave '' to turn it off.
-  turnstileSiteKey: '0x4AAAAAAF0v-tDpjqmjLXNM',
+  turnstileSiteKey: '',
   brandIcons: {
     google: 'icons/google.svg',
     whatsapp: 'icons/whatsapp.svg',
@@ -355,6 +355,7 @@ window.RAQBO_CONFIG = {
   const normPhone = (v) => { const m = phoneDigits(v); return m ? '+92 ' + m.slice(0, 3) + ' ' + m.slice(3) : null; };
   const e164 = (v) => { const m = phoneDigits(v); return m ? '+92' + m : null; };
   const maskPhone = (p) => { const d = String(p || '').replace(/\D/g, ''); return d.length >= 4 ? '+92 3•• ••• ••' + d.slice(-2) : 'hidden'; };
+  const hashPw = async (pw) => { try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('raqbo-demo:' + pw)); return [...new Uint8Array(b)].map((x) => x.toString(16).padStart(2, '0')).join(''); } catch { return 'plain:' + pw; } };
   const validEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 
   const ICON = {
@@ -445,19 +446,22 @@ window.RAQBO_CONFIG = {
     },
     save(k) { if (!store.set(k, db[k])) toast('This browser blocked saving. Changes will be lost when the page closes.'); },
     async reloadListings() {},
-    otpNotice: () => 'Demo mode — no email is sent. Use code <b>123456</b>.',
-    async sendEmailOtp() {},
-    async verifyEmailOtp(email, code) {
-      if (code !== '123456') throw new Error('That code is not correct. In demo mode the code is 123456.');
-      const key = email.toLowerCase(); const prev = store.get('accounts', {})[key];
-      db.session = prev ? { ...prev, otp: true } : { userId: 'local:' + key, email: key, name: '', phone: '', verified: false, since: Date.now(), otp: true };
-      store.set('session', db.session);
+    async signUp(name, email, phone, password) {
+      const key = email.toLowerCase(); const acc = store.get('accounts', {});
+      if (acc[key]) throw new Error('An account with this email already exists. Please sign in.');
+      acc[key] = { userId: 'local:' + key, email: key, name, phone: normPhone(phone), verified: true, since: Date.now(), pw: await hashPw(password) };
+      store.set('accounts', acc); const { pw, ...sess } = acc[key]; db.session = sess; store.set('session', db.session);
+    },
+    async signIn(email, password) {
+      const key = email.toLowerCase(); const a = store.get('accounts', {})[key];
+      if (!a || a.pw !== await hashPw(password)) throw new Error('Incorrect email or password.');
+      const { pw, ...sess } = a; db.session = sess; store.set('session', db.session);
     },
     async googleSignIn() { throw new Error('Google sign-in works once the website is connected to Supabase.'); },
     async completeProfile(name, phone) {
-      if (!db.session || !db.session.otp) throw new Error('Please verify the code sent to your email first.');
+      if (!db.session) throw new Error('Please sign in first.');
       Object.assign(db.session, { name, phone: normPhone(phone), verified: true });
-      const acc = store.get('accounts', {}); acc[db.session.email] = { ...db.session, otp: false }; store.set('accounts', acc); store.set('session', db.session);
+      const acc = store.get('accounts', {}); if (acc[db.session.email]) Object.assign(acc[db.session.email], { name, phone: normPhone(phone), verified: true }); store.set('accounts', acc); store.set('session', db.session);
     },
     async signOut() { db.session = null; store.set('session', null); },
     async toggleFavorite(id) {
@@ -520,35 +524,37 @@ window.RAQBO_CONFIG = {
     if (/fetch|network/i.test(m)) return 'Could not reach the server. Check your internet connection and try again.';
     return m;
   };
-  /* ---------- Sign-in (Supabase Auth: email OTP + Google) ---------- */
-  const jwtClaims = (token) => { try { return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))); } catch { return {}; } };
+  /* ---------- Sign-in (Supabase Auth: email + password, and Google) ---------- */
   const AUTH_ERRORS = [
-    [/signups not allowed/i, 'No account found with this email. Please create an account first.'],
-    [/email address not authorized|not authorized/i, 'Email sending is not set up yet. (Admin: add a custom SMTP server in Supabase.)'],
-    [/expired|invalid.*token|token.*invalid|otp_expired/i, 'That code is incorrect or has expired. Tap “Resend code” to get a new one.'],
-    [/provider is not enabled|unsupported provider/i, 'Google sign-in is not enabled yet. (Admin: turn on Google in Supabase → Authentication.)'],
-    [/captcha/i, 'The security check failed. Please complete the check again and retry.'],
-    [/rate limit|too many/i, 'Too many attempts. Please wait a minute and try again.'],
     [/invalid login credentials/i, 'Incorrect email or password.'],
+    [/already registered|already been registered|user already exists/i, 'An account with this email already exists. Please sign in instead.'],
+    [/email not confirmed/i, 'This email is not confirmed yet. (Admin: in Supabase → Authentication → Sign In / Providers → Email, turn OFF “Confirm email”.)'],
+    [/password.*(at least|should be|characters)|weak password/i, 'Please use a stronger password (at least 8 characters).'],
+    [/signups? not allowed|signup.*disabled/i, 'New sign-ups are switched off. (Admin: allow new users in Supabase → Authentication → Sign In / Providers.)'],
+    [/provider is not enabled|unsupported provider/i, 'Google sign-in is not enabled yet. (Admin: turn on Google in Supabase → Authentication.)'],
+    [/captcha/i, 'Security check required. (Admin: turn OFF captcha in Supabase → Authentication → Attack Protection.)'],
+    [/error sending|smtp|email.*send/i, 'Supabase tried to send an email. (Admin: turn OFF “Confirm email” in Supabase → Authentication → Sign In / Providers → Email.)'],
+    [/rate limit|too many/i, 'Too many attempts. Please wait a minute and try again.'],
     [/invalid.*email|unable to validate email/i, 'Please enter a valid email address.']
   ];
   const authErr = (error, fallback) => { const m = (error && error.message) || fallback || 'Something went wrong.'; const hit = AUTH_ERRORS.find(([re]) => re.test(m)); return hit ? hit[1] : sbErr(error, fallback); };
   function supabaseAuth(sb) {
-    const toUser = (u, session) => {
-      if (!u) return null; const amr = (session && jwtClaims(session.access_token).amr) || [];
-      const meta = u.user_metadata || {};
-      return { id: u.id, email: u.email || '', createdAt: u.created_at, name: meta.full_name || meta.name || '', otp: amr.some((a) => ['otp', 'magiclink', 'email/signup'].includes(a.method)) };
-    };
+    const toUser = (u) => { if (!u) return null; const meta = u.user_metadata || {}; return { id: u.id, email: u.email || '', createdAt: u.created_at, name: meta.full_name || meta.name || '' }; };
     return {
-      async current() { const { data } = await sb.auth.getSession(); return toUser(data.session && data.session.user, data.session); },
-      async sendEmailOtp(email, create, captchaToken) {
-        const { error } = await sb.auth.signInWithOtp({ email, options: { shouldCreateUser: create !== false, captchaToken } });
-        if (error) throw new Error(authErr(error, 'Could not send the code.'));
+      async current() { const { data } = await sb.auth.getSession(); return toUser(data.session && data.session.user); },
+      async signUp(name, email, password) {
+        const { data, error } = await sb.auth.signUp({ email, password, options: { data: { full_name: name } } });
+        if (error) throw new Error(authErr(error, 'Could not create the account.'));
+        if (!data.session) {
+          if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0) throw new Error('An account with this email already exists. Please sign in instead.');
+          throw new Error('Account created, but email confirmation is switched on. (Admin: in Supabase → Authentication → Sign In / Providers → Email, turn OFF “Confirm email”.)');
+        }
+        return toUser(data.user);
       },
-      async verifyEmailOtp(email, code) {
-        const { data, error } = await sb.auth.verifyOtp({ email, token: code, type: 'email' });
-        if (error) throw new Error(authErr(error, 'Could not verify the code.'));
-        return toUser(data.user, data.session);
+      async signIn(email, password) {
+        const { data, error } = await sb.auth.signInWithPassword({ email, password });
+        if (error) throw new Error(authErr(error, 'Could not sign in.'));
+        return toUser(data.user);
       },
       async googleSignIn() {
         const { error } = await sb.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: location.origin + location.pathname } });
@@ -558,11 +564,7 @@ window.RAQBO_CONFIG = {
         const { error } = await sb.rpc('complete_profile', { p_full_name: name, p_phone: phone });
         if (error) throw new Error(authErr(error, 'Could not save your details.'));
       },
-      async signInEmail(email, password, captchaToken) {
-        const { data, error } = await sb.auth.signInWithPassword({ email, password, options: { captchaToken } });
-        if (error) throw new Error(authErr(error, 'Could not sign in.'));
-        return toUser(data.user, data.session);
-      },
+      async signInEmail(email, password) { return this.signIn(email, password); },
       async signOut() { await sb.auth.signOut(); }
     };
   }
@@ -591,7 +593,7 @@ window.RAQBO_CONFIG = {
       if (!user) { currentUser = null; db.session = null; db.isAdmin = false; return; }
       currentUser = user;
       const { data } = await sb.from('profiles').select('full_name, email, phone, verified, role, created_at').eq('id', user.id).maybeSingle();
-      db.session = { userId: user.id, name: (data && data.full_name) || user.name || '', email: (data && data.email) || user.email || '', phone: data && data.phone ? normPhone(data.phone) || data.phone : '', verified: !!(data && data.verified), otp: user.otp, since: Date.parse((data && data.created_at) || user.createdAt) || Date.now() };
+      db.session = { userId: user.id, name: (data && data.full_name) || user.name || '', email: (data && data.email) || user.email || '', phone: data && data.phone ? normPhone(data.phone) || data.phone : '', verified: !!(data && data.verified), since: Date.parse((data && data.created_at) || user.createdAt) || Date.now() };
       db.isAdmin = !!data && data.role === 'admin';
     };
     const loadFavorites = async () => {
@@ -612,10 +614,13 @@ window.RAQBO_CONFIG = {
         if (error) throw new Error(sbErr(error, 'Could not load listings.'));
         const urls = await signUrls(data); db.listings = data.map((r) => toListing(r, urls));
       },
-      otpNotice: (email) => `We emailed a 6-digit code to <b>${esc(email)}</b>. It can take a minute — check your Spam folder too.`,
-      async sendEmailOtp(email, create, captchaToken) { await auth.sendEmailOtp(email, create, captchaToken); },
-      async verifyEmailOtp(email, code) {
-        const u = await auth.verifyEmailOtp(email, code);
+      async signUp(name, email, phone, password) {
+        const u = await auth.signUp(name, email, password);
+        await auth.completeProfile(name, e164(phone));
+        await loadProfile(u); await Promise.all([this.reloadListings(), loadFavorites()]);
+      },
+      async signIn(email, password) {
+        const u = await auth.signIn(email, password);
         await loadProfile(u); await Promise.all([this.reloadListings(), loadFavorites()]);
       },
       async googleSignIn() { await auth.googleSignIn(); },
@@ -690,8 +695,8 @@ window.RAQBO_CONFIG = {
         const { error } = await sb.from('reports').insert({ ref, listing_id: r.listingId, reason: r.reason, details: r.details || null, reporter_name: r.reporterName || null, reporter_phone: r.reporterPhone || null });
         if (error) throw new Error(sbErr(error, 'Could not send the report.')); return ref;
       },
-      async adminSignIn(email, password, captchaToken) {
-        const u = await auth.signInEmail(email, password, captchaToken);
+      async adminSignIn(email, password) {
+        const u = await auth.signInEmail(email, password);
         await loadProfile(u);
         if (!db.isAdmin) { await this.signOut(); throw new Error('This account does not have admin access yet. Give it the admin role in Supabase (see SETUP step 4), then sign in again.'); }
         await loadFavorites();
@@ -1039,7 +1044,7 @@ window.RAQBO_CONFIG = {
   }
   $$('[data-service]').forEach((b) => b.addEventListener('click', () => openEnquiry(b.dataset.service)));
 
-  /* ---------- Sign-in screen (email OTP + Google) ---------- */
+  /* ---------- Sign-in screen (email + password, or Google) ---------- */
   const PK_PHONE_HINT = 'Enter a valid Pakistani mobile number, e.g. 0300 1234567.';
   const isComplete = () => !!(db.session && (db.session.verified || (db.isAdmin && LIVE)));
   function updateAuthUI() { const label = db.session ? 'My account' : 'Sign in'; $$('[data-action=signin]').forEach((b) => { b.textContent = label; }); }
@@ -1049,7 +1054,7 @@ window.RAQBO_CONFIG = {
     oauthError = hs.get('error_description') || qs.get('error_description') || '';
     if (oauthError) history.replaceState(null, '', location.pathname);
   } catch { /* ignore */ }
-  const gate = { el: null, view: 'signup', otp: null, onDone: null };
+  const gate = { el: null, view: 'signin', onDone: null };
   const SOCIAL_HTML = () => { const row = $('.social-row'); return row ? row.innerHTML : ''; };
   const FULL_LOGO = () => ($('.footer-logo') || {}).src || '';
   function gateShell() {
@@ -1068,54 +1073,36 @@ window.RAQBO_CONFIG = {
   const googleBtn = '<button type="button" class="button auth-google" data-google><span class="auth-google-mark" aria-hidden="true">G</span> Continue with Google</button><div class="auth-divider"><span>or use your email</span></div>';
   function renderGate(view, msg) {
     gate.view = view; const body = $('.auth-body', gateShell());
-    const tabs = (active) => `<div class="auth-tabs" role="tablist"><button type="button" role="tab" class="${active === 'signup' ? 'active' : ''}" data-view="signup">Create account</button><button type="button" role="tab" class="${active === 'signin' ? 'active' : ''}" data-view="signin">Sign in</button></div>`;
+    const tabs = (active) => `<div class="auth-tabs" role="tablist"><button type="button" role="tab" class="${active === 'signin' ? 'active' : ''}" data-view="signin">Sign in</button><button type="button" role="tab" class="${active === 'signup' ? 'active' : ''}" data-view="signup">Create account</button></div>`;
     const err = `<div class="form-error" ${msg ? '' : 'hidden'}>${msg ? esc(msg) : ''}</div>`;
     const s = db.session || {};
-    if (view === 'signup') body.innerHTML = `${tabs('signup')}<h1>Create your RAQBO account</h1><p class="auth-lead">We’ll email you a 6-digit code to confirm it’s you.</p>${googleBtn}
+    if (view === 'signin') body.innerHTML = `${tabs('signin')}<h1>Welcome back</h1><p class="auth-lead">Sign in with your email and password.</p>${googleBtn}
+      <form class="modal-form" data-form="signin" novalidate>
+        <label>Email<input name="email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com"></label>
+        <label>Password<input name="password" type="password" autocomplete="current-password" placeholder="Your password"></label>
+        ${err}<button class="button button-primary modal-submit" type="submit">Sign in</button>
+        <p class="form-hint">Forgot your password? <a class="link-button" href="https://wa.me/${esc(WA_NUMBER)}?text=${encodeURIComponent('Hi RAQBO, I forgot my account password. My email is: ')}" target="_blank" rel="noopener">Message us on WhatsApp</a>.</p></form>`;
+    else if (view === 'signup') body.innerHTML = `${tabs('signup')}<h1>Create your RAQBO account</h1><p class="auth-lead">It takes less than a minute.</p>${googleBtn}
       <form class="modal-form" data-form="signup" novalidate>
         <label>Full name<input name="name" maxlength="120" autocomplete="name" placeholder="e.g. Ayesha Khan"></label>
         <label>Email<input name="email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com"></label>
         <label>Mobile number<input name="phone" inputmode="tel" autocomplete="tel" placeholder="03XX XXXXXXX"></label>
-        ${CAPTCHA_BOX()}${err}<button class="button button-primary modal-submit" type="submit">Send verification code</button></form>`;
-    else if (view === 'signin') body.innerHTML = `${tabs('signin')}<h1>Welcome back</h1><p class="auth-lead">Enter your email and we’ll send you a sign-in code.</p>${googleBtn}
-      <form class="modal-form" data-form="signin" novalidate>
-        <label>Email<input name="email" type="email" maxlength="200" autocomplete="email" placeholder="you@example.com"></label>
-        ${CAPTCHA_BOX()}${err}<button class="button button-primary modal-submit" type="submit">Send sign-in code</button></form>`;
-    else if (view === 'otp') body.innerHTML = `<div class="eyebrow"><span></span> CHECK YOUR EMAIL</div><h1>Enter the code from your email</h1>
-      <div class="otp-demo">${backend.otpNotice(gate.otp.email)}</div>
-      <form class="modal-form" data-form="otp" novalidate>
-        <label>Verification code<input name="code" class="otp-input" inputmode="numeric" maxlength="8" autocomplete="one-time-code" placeholder="••••••"></label>
-        ${err}<button class="button button-primary modal-submit" type="submit">Verify and continue</button>${CAPTCHA_BOX()}
-        <div class="otp-links"><button type="button" class="link-button" data-resend disabled>Resend code</button><button type="button" class="link-button" data-change>Use a different email</button></div></form>`;
-    else if (view === 'complete') body.innerHTML = `<div class="eyebrow"><span></span> ALMOST DONE</div><h1>Complete your profile</h1><p class="auth-lead">Your email is confirmed. Add your name and mobile number to finish creating your account.</p>
+        <label>Password<input name="password" type="password" autocomplete="new-password" placeholder="At least 8 characters"></label>
+        ${err}<button class="button button-primary modal-submit" type="submit">Create account</button></form>`;
+    else if (view === 'complete') body.innerHTML = `<div class="eyebrow"><span></span> ALMOST DONE</div><h1>Add your mobile number</h1><p class="auth-lead">One last step to finish your RAQBO account.</p>
       <form class="modal-form" data-form="complete" novalidate>
         <label>Full name<input name="name" maxlength="120" autocomplete="name" value="${esc(s.name || '')}"></label>
         <label>Email<input name="email" value="${esc(s.email || '')}" readonly></label>
         <label>Mobile number<input name="phone" inputmode="tel" autocomplete="tel" placeholder="03XX XXXXXXX" value="${esc(s.phone || '')}"></label>
-        ${err}<button class="button button-primary modal-submit" type="submit">Create my account</button>
-        <button type="button" class="link-button" data-signout-gate>Sign out</button></form>`;
-    else if (view === 'google') body.innerHTML = `<div class="eyebrow"><span></span> SIGNED IN WITH GOOGLE</div><h1>Verify your email</h1><p class="auth-lead">For your security we’ll send a 6-digit code to your Google email. Add your mobile number, then enter the code to create your account.</p>
-      <form class="modal-form" data-form="google" novalidate>
-        <label>Full name<input name="name" maxlength="120" autocomplete="name" value="${esc(s.name || '')}"></label>
-        <label>Email<input name="email" value="${esc(s.email || '')}" readonly></label>
-        <label>Mobile number<input name="phone" inputmode="tel" autocomplete="tel" placeholder="03XX XXXXXXX" value="${esc(s.phone || '')}"></label>
-        ${CAPTCHA_BOX()}${err}<button class="button button-primary modal-submit" type="submit">Send code to my email</button>
+        ${err}<button class="button button-primary modal-submit" type="submit">Continue</button>
         <button type="button" class="link-button" data-signout-gate>Use a different account</button></form>`;
-    if (view === 'otp') startResendTimer();
-    gate.captcha = captcha.mount($('[data-captcha]', body));
     applyBrandIcons(gate.el);
     const first = $('input:not([readonly])', body); if (first) setTimeout(() => first.focus({ preventScroll: true }), 30);
-  }
-  let resendTimer = null;
-  function startResendTimer() {
-    const btn = $('[data-resend]', gate.el); let wait = 60; clearInterval(resendTimer);
-    const tick = () => { if (!btn.isConnected) { clearInterval(resendTimer); return; } if (wait <= 0) { clearInterval(resendTimer); btn.disabled = false; btn.textContent = 'Resend code'; } else { btn.disabled = true; btn.textContent = `Resend code in ${wait}s`; } wait--; };
-    tick(); resendTimer = setInterval(tick, 1000);
   }
   function showGate(view, msg) {
     if (admin.el && !admin.el.hidden) return;
     closeModal(); gateShell().hidden = false; document.body.classList.add('gate-open');
-    renderGate(view || (db.session ? (db.session.otp ? 'complete' : 'google') : 'signup'), msg);
+    renderGate(view || (db.session ? 'complete' : 'signin'), msg);
   }
   function hideGate() { if (gate.el) gate.el.hidden = true; document.body.classList.remove('gate-open'); }
   function checkGate() {
@@ -1129,51 +1116,31 @@ window.RAQBO_CONFIG = {
     const next = gate.onDone; gate.onDone = null; if (next) next();
   }
   function requireSignIn(next) { if (isComplete()) next(); else { gate.onDone = next; showGate(); } }
-  function openSignIn() { showGate(); }
   async function gateSubmit(e) {
     const f = e.target.closest('form[data-form]'); if (!f) return; e.preventDefault();
     const kind = f.dataset.form; const btn = $('.modal-submit', f); const errs = [];
     const v = (n) => (f.elements[n] ? f.elements[n].value.trim() : '');
-    if (kind === 'signup' || kind === 'complete' || kind === 'google') {
+    if (kind === 'signup' || kind === 'complete') {
       if (v('name').length < 2) errs.push(['name', 'Enter your full name.']);
       if (!normPhone(v('phone'))) errs.push(['phone', PK_PHONE_HINT]);
     }
-    if ((kind === 'signup' || kind === 'signin') && !validEmail(v('email'))) errs.push(['email', 'Enter a valid email address.']);
-    if (kind === 'otp' && !/^\d{6,8}$/.test(v('code'))) errs.push(['code', 'Enter the code from your email.']);
+    if (kind === 'signup' || kind === 'signin') { if (!validEmail(v('email'))) errs.push(['email', 'Enter a valid email address.']); }
+    if (kind === 'signup' && f.password.value.length < 8) errs.push(['password', 'Choose a password with at least 8 characters.']);
+    if (kind === 'signin' && !f.password.value) errs.push(['password', 'Enter your password.']);
     if (showErrors(f, errs)) return;
-    const done = busy(btn, kind === 'otp' ? 'Verifying…' : kind === 'complete' ? 'Saving…' : 'Sending code…');
+    const done = busy(btn, kind === 'signup' ? 'Creating account…' : kind === 'signin' ? 'Signing in…' : 'Saving…');
     try {
-      if (kind === 'signup' || kind === 'google') {
-        const email = kind === 'google' ? db.session.email : v('email').toLowerCase();
-        const token = await gate.captcha.get();
-        try { await backend.sendEmailOtp(email, kind === 'signup', token); } finally { gate.captcha.reset(); }
-        gate.otp = { mode: 'complete', email, name: v('name'), phone: normPhone(v('phone')) }; renderGate('otp');
-      } else if (kind === 'signin') {
-        const email = v('email').toLowerCase(); const token = await gate.captcha.get();
-        try { await backend.sendEmailOtp(email, false, token); } finally { gate.captcha.reset(); }
-        gate.otp = { mode: 'signin', email }; renderGate('otp');
-      } else if (kind === 'otp') {
-        await backend.verifyEmailOtp(gate.otp.email, v('code'));
-        if (isComplete()) finishSignIn();
-        else if (gate.otp.mode === 'complete') { await backend.completeProfile(gate.otp.name, gate.otp.phone); finishSignIn(); }
-        else renderGate('complete');
-      } else if (kind === 'complete') {
-        await backend.completeProfile(v('name'), normPhone(v('phone'))); finishSignIn();
-      }
-    } catch (err) { done(); showErrors(f, [[kind === 'otp' ? 'code' : (kind === 'signin' || kind === 'signup') && /email/i.test(err.message) ? 'email' : 'phone', err.message]]); }
+      if (kind === 'signup') await backend.signUp(v('name'), v('email').toLowerCase(), normPhone(v('phone')), f.password.value);
+      else if (kind === 'signin') await backend.signIn(v('email').toLowerCase(), f.password.value);
+      else if (kind === 'complete') await backend.completeProfile(v('name'), normPhone(v('phone')));
+      if (isComplete()) finishSignIn(); else renderGate('complete');
+    } catch (err) { done(); showErrors(f, [[/password/i.test(err.message) ? 'password' : /email|account/i.test(err.message) ? 'email' : 'phone', err.message]]); }
   }
   async function gateClick(e) {
     const t = e.target.closest('[data-view]'); if (t) { renderGate(t.dataset.view); return; }
-    if (e.target.closest('[data-change]')) { renderGate(gate.otp && gate.otp.mode === 'signin' ? 'signin' : 'signup'); return; }
-    if (e.target.closest('[data-signout-gate]')) { await backend.signOut(); updateAuthUI(); renderGate('signup'); return; }
+    if (e.target.closest('[data-signout-gate]')) { await backend.signOut(); updateAuthUI(); renderGate('signin'); return; }
     const g = e.target.closest('[data-google]');
-    if (g) { const done = busy(g, 'Opening Google…'); try { await backend.googleSignIn(); } catch (err) { done(); const f = $('form', gate.el); if (f) showErrors(f, [['email', err.message]]); } return; }
-    const r = e.target.closest('[data-resend]');
-    if (r) {
-      r.disabled = true; r.textContent = 'Sending…'; const f = $('form', gate.el);
-      try { const token = await gate.captcha.get(); try { await backend.sendEmailOtp(gate.otp.email, gate.otp.mode === 'complete', token); } finally { gate.captcha.reset(); } toast('A new code has been sent to your email.'); showErrors(f, []); } catch (err) { showErrors(f, [['code', err.message]]); }
-      startResendTimer();
-    }
+    if (g) { const done = busy(g, 'Opening Google…'); try { await backend.googleSignIn(); } catch (err) { done(); const f = $('form', gate.el); if (f) showErrors(f, [['email', err.message]]); } }
   }
   document.addEventListener('submit', (e) => { if (gate.el && gate.el.contains(e.target)) gateSubmit(e); });
   document.addEventListener('click', (e) => { if (gate.el && gate.el.contains(e.target) && !e.target.closest('[data-action]')) gateClick(e); });
@@ -1186,7 +1153,7 @@ window.RAQBO_CONFIG = {
     const mine = db.listings.filter((l) => !l.sample && l.ownerId === s.userId).sort((a, b) => b.createdAt - a.createdAt);
     const card = openModal(`
       <div class="eyebrow"><span></span> MY ACCOUNT</div><h2>${esc(s.name)}</h2>
-      <p class="modal-lead">${esc(s.email)}${s.verified ? ' · email verified' : ''}${s.phone ? ` · ${esc(s.phone)}` : ''}${db.isAdmin && LIVE ? ' · RAQBO admin' : ''} · member since ${esc(fmtDay(s.since))}</p>
+      <p class="modal-lead">${esc(s.email)}${s.phone ? ` · ${esc(s.phone)}` : ''}${db.isAdmin && LIVE ? ' · RAQBO admin' : ''} · member since ${esc(fmtDay(s.since))}</p>
       <h3 class="detail-subhead">My listings</h3>
       ${mine.length ? `<div class="account-list">${mine.map((l) => `<div class="account-item"><div><b>${esc(l.title)}</b><small>${esc(l.area)}, ${esc(l.city)} · ${fmtPrice(l.price)} · submitted ${esc(fmtDay(l.createdAt))}${l.reviewNote ? `<br>Reviewer note: ${esc(l.reviewNote)}` : ''}</small></div><div class="account-item-actions">${pill(l.status)}<button type="button" class="link-button" data-view="${esc(l.id)}">View</button><button type="button" class="link-button" data-edit="${esc(l.id)}">Edit</button><button type="button" class="link-button link-danger" data-delete="${esc(l.id)}">Delete</button></div></div>`).join('')}</div><p class="form-hint">Editing a listing sends it back for review — it is hidden from the public until approved again.</p>` : '<p class="modal-lead">You haven’t listed a property yet.</p>'}
       <div class="button-row"><button type="button" class="button button-primary" data-new>List a property</button>${db.isAdmin && LIVE ? '<button type="button" class="button button-outline" data-admin>Admin panel</button>' : ''}<button type="button" class="button button-outline" data-signout>Sign out</button></div>`, { label: 'My account' });

@@ -1,5 +1,5 @@
 -- =====================================================================
--- RAQBO — Supabase database setup (email OTP + Google sign-in)
+-- RAQBO — Supabase database setup (email + password and Google sign-in)
 -- Run this whole file once in: Supabase Dashboard → SQL Editor → New query → Run
 -- If you ran an OLDER RAQBO schema before, run reset_old_setup.sql first (one time only).
 -- Safe to re-run: objects are created with IF NOT EXISTS / OR REPLACE where possible.
@@ -52,21 +52,13 @@ create trigger on_auth_user_created
   after insert on auth.users
   for each row execute function public.handle_new_user();
 
--- Called by the website after the user enters the 6-digit email code.
--- Only works if the current login was confirmed with an email OTP (Google alone is not enough).
+-- Called by the website to save the user's name and mobile number after sign-up / Google sign-in.
 create or replace function public.complete_profile(p_full_name text, p_phone text)
 returns void
 language plpgsql security definer set search_path = public
 as $$
-declare
-  otp_confirmed boolean;
 begin
   if auth.uid() is null then raise exception 'Please sign in first.'; end if;
-  select exists (
-    select 1 from jsonb_array_elements(coalesce(auth.jwt() -> 'amr', '[]'::jsonb)) e
-    where e ->> 'method' in ('otp', 'magiclink', 'email/signup')
-  ) into otp_confirmed;
-  if not otp_confirmed then raise exception 'Please verify the code sent to your email first.'; end if;
   if char_length(trim(coalesce(p_full_name, ''))) not between 2 and 120 then raise exception 'Please enter your full name.'; end if;
   if p_phone !~ '^\+923[0-9]{9}$' then raise exception 'Please enter a valid Pakistani mobile number.'; end if;
   update public.profiles
