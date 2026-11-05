@@ -118,6 +118,9 @@ as $$
 begin
   -- auth.uid() is null only for trusted server-side runs (SQL editor / service role).
   if auth.uid() is not null and not public.is_admin() then
+    if (select count(*) from public.listings where owner_id = auth.uid() and created_at > now() - interval '1 day') >= 10 then
+      raise exception 'You can submit up to 10 listings per day. Please try again tomorrow.';
+    end if;
     new.owner_id     := auth.uid();
     new.status       := 'pending';
     new.is_sample    := false;
@@ -143,6 +146,16 @@ language plpgsql security definer set search_path = public
 as $$
 begin
   new.updated_at := now();
+  if auth.uid() is not null and not public.is_admin() then
+    -- Advertiser editing their own listing: system fields stay as they were,
+    -- and the listing goes back to the review queue (hidden until approved again).
+    new.id := old.id; new.ref := old.ref; new.owner_id := old.owner_id; new.is_sample := old.is_sample;
+    new.advertiser_name := old.advertiser_name; new.created_at := old.created_at;
+    new.review_note := old.review_note; new.reviewed_by := old.reviewed_by; new.reviewed_at := old.reviewed_at;
+    new.published_at := old.published_at;
+    new.status := 'pending';
+    return new;
+  end if;
   if new.status is distinct from old.status then
     new.reviewed_by := auth.uid();
     new.reviewed_at := now();
@@ -211,12 +224,22 @@ create table if not exists public.reports (
 -- Public submissions always start as new/open and are linked to the signed-in user (if any).
 create or replace function public.submissions_before_insert()
 returns trigger
-language plpgsql
+language plpgsql security definer set search_path = public
 as $$
+declare recent int;
 begin
   new.user_id := auth.uid();
   new.created_at := now();
   if tg_table_name = 'enquiries' then new.status := 'new'; else new.status := 'open'; end if;
+  -- Spam limit: 10 enquiries and 10 reports per user per hour (admins exempt).
+  if auth.uid() is not null and not public.is_admin() then
+    if tg_table_name = 'enquiries' then
+      select count(*) into recent from public.enquiries where user_id = auth.uid() and created_at > now() - interval '1 hour';
+    else
+      select count(*) into recent from public.reports where user_id = auth.uid() and created_at > now() - interval '1 hour';
+    end if;
+    if recent >= 10 then raise exception 'Too many requests. Please try again in an hour.'; end if;
+  end if;
   return new;
 end;
 $$;
@@ -268,9 +291,13 @@ create policy "listings: owner inserts pending" on public.listings
 drop policy if exists "listings: admin updates" on public.listings;
 create policy "listings: admin updates" on public.listings
   for update using (public.is_admin()) with check (public.is_admin());
+drop policy if exists "listings: owner edits own" on public.listings;
+create policy "listings: owner edits own" on public.listings
+  for update to authenticated using (owner_id = auth.uid() and not is_sample) with check (owner_id = auth.uid());
 drop policy if exists "listings: owner withdraws pending, admin deletes" on public.listings;
-create policy "listings: owner withdraws pending, admin deletes" on public.listings
-  for delete using ((owner_id = auth.uid() and status = 'pending') or public.is_admin());
+drop policy if exists "listings: owner or admin deletes" on public.listings;
+create policy "listings: owner or admin deletes" on public.listings
+  for delete using (owner_id = auth.uid() or public.is_admin());
 
 -- Listing media: visible whenever its listing is visible; owners add media to their own pending listings.
 drop policy if exists "media: read with listing" on public.listing_media;
@@ -283,13 +310,17 @@ create policy "media: owner adds to pending listing" on public.listing_media
     and path like auth.uid()::text || '/%'
   );
 drop policy if exists "media: admin deletes" on public.listing_media;
-create policy "media: admin deletes" on public.listing_media
-  for delete using (public.is_admin());
+drop policy if exists "media: owner or admin deletes" on public.listing_media;
+create policy "media: owner or admin deletes" on public.listing_media
+  for delete using (public.is_admin() or exists (select 1 from public.listings l where l.id = listing_id and l.owner_id = auth.uid()));
 
--- Enquiries & reports: anyone may submit; only admins read and update.
+-- Enquiries & reports: only signed-in, verified users may submit (spam protection); only admins read and update.
 drop policy if exists "enquiries: anyone submits" on public.enquiries;
-create policy "enquiries: anyone submits" on public.enquiries
-  for insert to anon, authenticated with check (status = 'new');
+drop policy if exists "enquiries: verified users submit" on public.enquiries;
+create policy "enquiries: verified users submit" on public.enquiries
+  for insert to authenticated with check (
+    status = 'new' and exists (select 1 from public.profiles p where p.id = auth.uid() and (p.verified or p.role = 'admin'))
+  );
 drop policy if exists "enquiries: admin reads" on public.enquiries;
 create policy "enquiries: admin reads" on public.enquiries
   for select using (public.is_admin());
@@ -298,9 +329,12 @@ create policy "enquiries: admin updates" on public.enquiries
   for update using (public.is_admin()) with check (public.is_admin());
 
 drop policy if exists "reports: anyone reports a published listing" on public.reports;
-create policy "reports: anyone reports a published listing" on public.reports
-  for insert to anon, authenticated with check (
-    status = 'open' and exists (select 1 from public.listings l where l.id = listing_id and l.status = 'published')
+drop policy if exists "reports: verified users report a published listing" on public.reports;
+create policy "reports: verified users report a published listing" on public.reports
+  for insert to authenticated with check (
+    status = 'open'
+    and exists (select 1 from public.listings l where l.id = listing_id and l.status = 'published')
+    and exists (select 1 from public.profiles p where p.id = auth.uid() and (p.verified or p.role = 'admin'))
   );
 drop policy if exists "reports: admin reads" on public.reports;
 create policy "reports: admin reads" on public.reports

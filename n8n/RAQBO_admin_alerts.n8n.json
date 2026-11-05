@@ -1,0 +1,98 @@
+{
+  "name": "RAQBO \u2014 Admin alerts (new listings, requests, reports)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "raqbo-alerts",
+        "options": {}
+      },
+      "id": "622607b6-fbcd-427b-8d11-4effbe1440e0",
+      "name": "Supabase webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "43d3f893-1fcb-4f6a-838f-bbc2836ab960"
+    },
+    {
+      "parameters": {
+        "jsCode": "// RAQBO \u2014 turns a Supabase database webhook into an admin alert.\n// Change SECRET to the same value you put in the Supabase webhook header \"x-raqbo-secret\".\nconst SECRET = 'CHANGE-ME-raqbo-secret';\nconst ADMIN_URL = 'https://raqbo.pk/#admin';\n\nconst SERVICES = { verification: 'Property verification request', legal: 'Legal services enquiry', documents: 'Document preparation & drafting', registry: 'Registry assistance', general: 'General enquiry' };\nconst esc = (v) => String(v ?? '').replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst pkr = (n) => { n = Number(n) || 0; if (n >= 1e7) return 'PKR ' + (Math.round(n / 1e5) / 100) + ' Cr'; if (n >= 1e5) return 'PKR ' + (Math.round(n / 1e3) / 100) + ' Lakh'; return 'PKR ' + n.toLocaleString('en-US'); };\nconst rows = (pairs) => pairs.filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => `<tr><td style=\"padding:6px 12px 6px 0;color:#7b7568;white-space:nowrap;vertical-align:top\">${esc(k)}</td><td style=\"padding:6px 0;color:#16140f\">${esc(v).replace(/\\n/g, '<br>')}</td></tr>`).join('');\nconst wrap = (title, intro, pairs) => `<div style=\"font-family:Arial,sans-serif;max-width:560px\">\n  <div style=\"background:#0b0b0c;color:#f6d27c;padding:14px 18px;border-radius:10px 10px 0 0;font-weight:700;letter-spacing:.12em\">RAQBO \u00b7 ADMIN ALERT</div>\n  <div style=\"border:1px solid #ece6da;border-top:0;padding:18px;border-radius:0 0 10px 10px\">\n    <h2 style=\"margin:0 0 6px;color:#121212;font-size:19px\">${esc(title)}</h2><p style=\"margin:0 0 12px;color:#5a544a\">${esc(intro)}</p>\n    <table style=\"border-collapse:collapse;font-size:14px\">${rows(pairs)}</table>\n    <p style=\"margin:18px 0 0\"><a href=\"${ADMIN_URL}\" style=\"background:#e6ac42;color:#16120a;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:700\">Open admin panel</a></p>\n  </div></div>`;\n\nconst out = [];\nfor (const item of $input.all()) {\n  const headers = item.json.headers || {};\n  if ((headers['x-raqbo-secret'] || '') !== SECRET) continue;          // ignore calls without the right secret\n  const { type, table, record: r = {}, old_record: o = null } = item.json.body || {};\n  let subject = null; let html = null; let text = null;\n\n  if (table === 'listings' && type === 'INSERT' && r.status === 'pending') {\n    subject = `New listing to review: ${r.title}`;\n    const pairs = [['Reference', r.ref], ['Title', r.title], ['Location', `${r.area}, ${r.city}`], ['Price', pkr(r.price) + (r.purpose === 'rent' ? ' / month' : '')], ['Purpose', r.purpose === 'rent' ? 'For rent' : 'For sale'], ['Type', r.property_type], ['Advertiser', `${r.advertiser_name || ''} (${r.advertiser_role})`], ['Size', `${r.size} ${r.size_unit}`]];\n    html = wrap('New listing awaiting review', 'A new property was submitted and is waiting for approval. It is not public yet.', pairs);\n    text = `New RAQBO listing to review: ${r.title} \u2014 ${r.area}, ${r.city} \u2014 ${pkr(r.price)}. Ref ${r.ref}. ${ADMIN_URL}`;\n  } else if (table === 'listings' && type === 'UPDATE' && o && r.status === 'pending' && o.status !== 'pending' && r.reviewed_at === o.reviewed_at) {\n    subject = `Edited listing to re-review: ${r.title}`;\n    html = wrap('Listing edited \u2014 needs review again', 'The advertiser changed this listing. It is hidden until you approve it again.', [['Reference', r.ref], ['Title', r.title], ['Location', `${r.area}, ${r.city}`], ['Price', pkr(r.price)], ['Previously', o.status]]);\n    text = `RAQBO listing edited and back in review: ${r.title} (Ref ${r.ref}). ${ADMIN_URL}`;\n  } else if (table === 'enquiries' && type === 'INSERT') {\n    const svc = SERVICES[r.service] || r.service;\n    subject = `New service request: ${svc} \u2014 ${r.name}`;\n    html = wrap('New service request', 'A customer sent a service request (they were also taken to WhatsApp to send it).', [['Reference', r.ref], ['Service', svc], ['Name', r.name], ['Phone', r.phone], ['Email', r.email], ['City', r.city], ['Property', r.property_ref], ['Preferred contact', r.preferred_contact], ['Message', r.message]]);\n    text = `New RAQBO request (${svc}) from ${r.name}, ${r.phone}. Ref ${r.ref}.`;\n  } else if (table === 'reports' && type === 'INSERT') {\n    subject = `Listing reported: ${r.reason}`;\n    html = wrap('A listing was reported', 'Please review the reported listing in the admin panel (Property reports).', [['Reference', r.ref], ['Reason', r.reason], ['Details', r.details], ['Listing ID', r.listing_id], ['Reported by', [r.reporter_name, r.reporter_phone].filter(Boolean).join(' \u00b7 ') || 'Signed-in user']]);\n    text = `RAQBO listing reported (${r.reason}). Ref ${r.ref}. ${ADMIN_URL}`;\n  }\n  if (subject) out.push({ json: { subject, html, text, table, type } });\n}\nreturn out;\n"
+      },
+      "id": "6beab2ea-1c56-4951-a9fd-3c7f69c69f51",
+      "name": "Build alert",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "sendTo": "raqbo.official@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailType": "html",
+        "message": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false,
+          "senderName": "RAQBO Alerts"
+        }
+      },
+      "id": "78624d44-9828-4099-bc05-f0a67f950e0e",
+      "name": "Email admin (Gmail)",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        520,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "content": "## RAQBO admin alerts\n1. Open **Build alert** and change `SECRET` to your own secret.\n2. Connect your Gmail account in **Email admin (Gmail)**.\n3. Activate the workflow and copy the **Production URL** from **Supabase webhook**.\n4. In Supabase \u2192 Database \u2192 Webhooks, create 3 webhooks (listings: Insert + Update, enquiries: Insert, reports: Insert) that POST to that URL with header `x-raqbo-secret`.\n\nOptional: add a WhatsApp node after **Build alert** and send `{{ $json.text }}`.",
+        "height": 300,
+        "width": 420
+      },
+      "id": "81fa9f74-84e8-4347-b65d-780e09ca1401",
+      "name": "Setup notes",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        160
+      ]
+    }
+  ],
+  "connections": {
+    "Supabase webhook": {
+      "main": [
+        [
+          {
+            "node": "Build alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build alert": {
+      "main": [
+        [
+          {
+            "node": "Email admin (Gmail)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
