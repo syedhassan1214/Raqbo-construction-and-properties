@@ -5,7 +5,8 @@
 -- Uploaded files in Storage are not deleted.
 -- =====================================================================
 drop trigger if exists on_auth_user_created on auth.users;
-drop table if exists public.favorites, public.reports, public.enquiries, public.listing_media, public.listings, public.profiles cascade;
+drop view if exists public.listing_rating_summary;
+drop table if exists public.reviews, public.favorites, public.reports, public.enquiries, public.listing_media, public.listings, public.profiles cascade;
 drop function if exists public.complete_profile(text, text) cascade;
 drop function if exists public.requesting_user_id() cascade;
 drop function if exists public.profiles_before_write() cascade;
