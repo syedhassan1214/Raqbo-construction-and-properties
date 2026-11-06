@@ -1553,7 +1553,9 @@ begin
         'enquiries', (select count(*) from public.enquiries),
         'reports_open', (select count(*) from public.reports where status = 'open'),
         'conversations', (select count(*) from public.conversations),
-        'messages_week', (select count(*) from public.messages where created_at > now() - interval '7 days')),
+        'messages_week', (select count(*) from public.messages where created_at > now() - interval '7 days'),
+        'support_waiting', (select count(*) from public.conversations c where c.other_id is null and c.last_sender = c.starter_id
+                            and not exists (select 1 from public.profiles p where p.id = c.starter_id and p.role = 'admin'))),
     'series', (select jsonb_agg(jsonb_build_object(
           'day', g::date,
           'users', (select count(*) from public.profiles p where (p.created_at at time zone 'Asia/Karachi')::date = g::date),
@@ -1586,7 +1588,7 @@ do $$
 declare t text;
 begin
   if exists (select 1 from pg_publication where pubname = 'supabase_realtime') then
-    foreach t in array array['profiles', 'listings', 'enquiries', 'reports', 'buyer_profiles'] loop
+    foreach t in array array['profiles', 'listings', 'enquiries', 'reports', 'buyer_profiles', 'conversations'] loop
       if not exists (select 1 from pg_publication_tables where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = t) then
         execute format('alter publication supabase_realtime add table public.%I', t);
       end if;
