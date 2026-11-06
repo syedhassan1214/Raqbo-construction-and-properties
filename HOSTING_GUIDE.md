@@ -70,7 +70,7 @@ Run the newest updates, one at a time (your data stays):
 
 ## C. After it is online
 0. **Escrow account:** open `website/content.js` and fill in `escrow` (bank, IBAN, JazzCash…) — this is the account buyers pay into. Upload again.
-   Admin work for escrow orders is in **Menu → Sell With Us & Order Online → Admin** tab: confirm payments, release payouts, resolve disputes, approve suppliers, turn on Verified / Escrow, register commercial buyers.
+   Admin work for escrow orders is in the **Admin panel → SELL WITH US** section (Escrow payments, Disputes, Suppliers, Buyers, Material orders): confirm payments, release payouts, resolve disputes, approve suppliers, turn on Verified / Escrow, register commercial buyers.
 1. Add the live address to Supabase **Redirect URLs** (section A) — needed for Google sign-in and password reset links.
 2. Edit `website/content.js` with the real founder name, message and projects; put photos in `website/images/`; set `sample: false`. Upload again.
 3. Optional admin email alerts: import `n8n/RAQBO_admin_alerts.n8n.json` into n8n and follow the yellow note inside the workflow (change `SECRET`, connect Gmail, create the Supabase database webhooks).

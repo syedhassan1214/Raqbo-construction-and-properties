@@ -22,7 +22,10 @@ Complete website + backend setup for RAQBO, a Pakistan property platform.
 | `docs/` | Client overview document (features and services) |
 
 ## Features
-- **Menu drawer** (top-right "Menu"): "Welcome back, *Name*", all pages, services, account; **Services** button opens it at the Services section
+- **Two-row app bar**: Buy · Sell · Rent · RAQBO Direct · Services ▾ · About us, plus **"Welcome back, *Name*"** account button (My account, Saved, My material orders, My shop, Admin panel, Sign out)
+- **Services ▾ dropdown**: Sell With Us & Order Online + Our Services (verification, legal, documents, registry) + *Explore all services*
+- **Our Services**: eye-catching photo slideshow on the home page and a full Services page (`#our-services`)
+- Home screen shows the social media links and the office address under *Browse properties*
 - **Sell With Us & Order Online** (construction material marketplace):
   - Vendor & buyer directory: material chips, search (shop / area / material / product code), city, *Escrow-enabled only* and *Verified* filters, result counter
   - Vendor cards: logo initials, Verified + Escrow badges, shop & owner, area/city + delivery radius, material tags, "From PKR … / unit" with **live rates**, star rating, Buy Now / Request Quote, WhatsApp, Call
@@ -31,7 +34,8 @@ Complete website + backend setup for RAQBO, a Pakistan property platform.
   - Quotes for "price on request" items; buyer accepts and pays through escrow
   - Supplier profile (public shop details + private NTN/CNIC, warehouse, payout account), catalog & pricing dashboard, order management
   - Buyer profile (buyer type, saved delivery addresses), order history and tracking timeline
-  - Only buyers with completed orders can review vendors; admin verifies suppliers, enables escrow, registers commercial buyers
+  - Only buyers with completed orders can review vendors
+  - **Admin panel → Sell With Us**: escrow payments, disputes, suppliers (approve / Verified / Escrow / private details), buyers (commercial status), all material orders
   - Everything updates in real time (rates, orders, statuses)
 - **Sign-in screen** on open: email + password, or Continue with Google; mobile number required
 - **Forgot password** with an emailed reset link
