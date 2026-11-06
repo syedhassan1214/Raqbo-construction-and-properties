@@ -14,6 +14,21 @@
    (this removes the yellow "sample text" note at the top of the page).
    ===================================================================== */
 window.RAQBO_CONTENT = {
+  /* ---------------------------------------------------------------
+     SELL WITH US & ORDER ONLINE — escrow account shown to buyers
+     Fill in the account where buyers pay for escrow orders.
+     Leave a line empty ('') to hide it. If ALL are empty, buyers get a
+     WhatsApp button to ask RAQBO for payment details instead.
+     --------------------------------------------------------------- */
+  escrow: {
+    accountTitle: 'RAQBO',
+    bank: '',        // e.g. 'Meezan Bank'
+    iban: '',        // e.g. 'PK00MEZN0000000000000000'
+    jazzcash: '',    // e.g. '0300 1234567'
+    easypaisa: '',
+    sadapay: ''
+  },
+
   about: {
     sample: true,
 
