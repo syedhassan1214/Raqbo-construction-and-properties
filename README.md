@@ -18,7 +18,7 @@ Complete website + backend setup for RAQBO, a Pakistan property platform.
 | `supabase/schema.sql` | Full database setup for a **new, empty** Supabase project |
 | `supabase/FRESH_INSTALL.sql` | Wipes RAQBO tables and installs everything again (**deletes all listings, reviews, enquiries**) |
 | `supabase/updates/` | Updates for an existing project (already included in `schema.sql`) |
-| `n8n/` | Optional n8n workflow: email alerts to the admin for new listings, requests and reports |
+| `n8n/` | n8n workflows: admin alerts (new listings, requests, reports) and order status emails to buyers, vendors and admin |
 | `docs/` | Client overview document (features and services) |
 
 ## Features

@@ -12,6 +12,7 @@ Run the newest updates, one at a time (your data stays):
 2. Open `supabase/updates/update_4_reviews.sql` in Notepad → **Ctrl+A**, **Ctrl+C** → paste into Supabase → **Run** → *Success*. (Skip if you already ran it.)
 3. **New query** again → paste all of `supabase/updates/update_5_marketplace.sql` → **Run** → *Success*. (Adds Sell With Us & Order Online: vendors, buyers, escrow orders, vendor reviews, 6 sample shops.)
 4. If you ran update_5 **before 6 Nov 2026 evening**, also run `update_6_nayapay.sql` (adds NayaPay) and `update_7_payment_proof.sql` (payment screenshots). Running update_5 now already includes both.
+5. For order status emails, also run `update_8_order_emails.sql` (safe to run more than once; update_5 now includes it).
 
 ### If you are starting a NEW Supabase project
 1. Create a project at **supabase.com** (free plan is fine).
@@ -75,6 +76,7 @@ Run the newest updates, one at a time (your data stays):
 1. Add the live address to Supabase **Redirect URLs** (section A) — needed for Google sign-in and password reset links.
 2. Edit `website/content.js` with the real founder name, message and projects; put photos in `website/images/`; set `sample: false`. Upload again.
 3. Optional admin email alerts: import `n8n/RAQBO_admin_alerts.n8n.json` into n8n and follow the yellow note inside the workflow (change `SECRET`, connect Gmail, create the Supabase database webhooks).
+4. Order status emails: import `n8n/RAQBO_order_emails.n8n.json`, change `SECRET`, connect Gmail, activate it, then in Supabase → Database → Webhooks create a webhook on table **email_outbox**, event **Insert**, POST to the workflow's Production URL with header `x-raqbo-secret`. Every email that was queued can be seen in Table Editor → **email_outbox**.
 4. Test: create an account, list a property, approve it from `#admin`, write a review, share a property link.
 
 ## Troubleshooting

@@ -31,44 +31,32 @@ window.RAQBO_CONTENT = {
   },
 
   about: {
-    sample: true,
+    sample: false,            // true shows a yellow "sample text" note at the top of the page
+    projectsSample: true,     // change to false once the projects below are RAQBO's real projects
 
-    intro: "RAQBO is a Pakistan-based property, land and investment company. We help families and investors buy, sell and rent with clear information, verified documents and honest advice — and we build and deliver our own residential and commercial projects.",
+    // Big heading at the top: [white line, gold line]
+    tagline: ['Every Property Solution.', 'One Place.'],
 
-    // [number, label] — shown in the top banner
-    stats: [
-      [
-        "12+",
-        "Years of experience"
-      ],
-      [
-        "25+",
-        "Projects delivered"
-      ],
-      [
-        "3,000+",
-        "Families served"
-      ],
-      [
-        "6",
-        "Cities across Pakistan"
-      ]
-    ],
+    // One line per paragraph
+    intro: ["RAQBO is a next-generation property marketplace and digital community, created to transform Pakistan’s real estate experience.", "More than a property portal, RAQBO brings together property transactions, professional expertise and comprehensive property-related services on one innovative platform."],
 
-    mission: "To make every property decision in Pakistan clear, safe and fair — from the first search to the final registry.",
-    vision: "To be the most trusted name in Pakistani real estate, known for transparent dealing and projects delivered on time.",
+    // [icon, text] — the three lines under the intro (icons: scale, shield, spark, hand, key)
+    pillars: [['scale', 'Founded on Judicial Experience'], ['shield', 'Built on Trust'], ['spark', 'Driven by Innovation']],
+
+    vision: "A property platform built not merely around advertisements, but around transparency, informed decisions and access to professional expertise.",
+    ambition: "To make RAQBO Pakistan’s most trusted and connected property ecosystem — where property meets people, expertise and technology.",
 
     founder: {
-      name: "Founder name",
-      title: "Founder & Chief Executive, RAQBO",
-      photo: 'images/founder.jpg',
+      name: 'Mr. Safdar Bhatti',                  // founder's name (leave '' to show the title only)
+      title: 'District & Sessions Judge (R)',
+      role: 'Founder, RAQBO',
+      photo: 'images/founder.jpg',                // if this file is missing, the RAQBO logo is shown instead
+      heading: 'How did it all begin?',
       // one line per paragraph
-      message: [
-        "When I started RAQBO, I saw how hard it was for ordinary families in Pakistan to buy property with confidence. Unclear documents, hidden charges and promises that were never kept made the biggest investment of people’s lives feel like a gamble.",
-        "We built RAQBO to change that. Every project we deliver and every listing we publish is backed by checked documents, honest pricing and a team that picks up the phone after the deal is done.",
-        "Thank you for trusting us with your home, your land and your investment. Our promise is simple: clarity at every step."
-      ]
+      message: ["RAQBO is the vision of a District & Sessions Judge (R), whose extensive judicial career and first-hand understanding of property-related legal complexities inspired a new approach to Pakistan’s real estate sector.", "Years of judicial experience highlighted the serious challenges arising from disputed ownership, defective documentation, fraudulent transactions and complicated legal procedures. This understanding gave rise to a powerful vision: a property platform built not merely around advertisements, but around transparency, informed decisions and access to professional expertise.", "RAQBO was conceived to turn that vision into reality by connecting property owners, buyers, investors and professionals through technology, while bringing virtually every property-related service within easy reach."]
     },
+
+    motto: ['Founded on Judicial Experience.', 'Built on Trust.', 'Driven by Innovation.'],
 
     // COMPLETED (previous) projects — slideshow
     completed: [
