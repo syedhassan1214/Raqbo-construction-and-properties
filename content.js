@@ -44,7 +44,14 @@ window.RAQBO_CONTENT = {
     pillars: [['scale', 'Founded on Judicial Experience'], ['shield', 'Built on Trust'], ['spark', 'Driven by Innovation']],
 
     vision: "A property platform built not merely around advertisements, but around transparency, informed decisions and access to professional expertise.",
-    ambition: "To make RAQBO Pakistan’s most trusted and connected property ecosystem — where property meets people, expertise and technology.",
+    ambition: "Our ambition is to make RAQBO Pakistan’s most trusted and connected property ecosystem — where property meets people, expertise and technology.",
+    ambitionHighlight: 'where property meets people, expertise and technology',   // shown in gold inside the big quote
+
+    // "More than a property portal" — [icon, title, line]  (icons: hand, scale, key, shield, spark)
+    offer: [["hand", "Property transactions", "Buy, sell and rent with clear information on one platform."], ["scale", "Professional expertise", "Legal, verification and documentation professionals within easy reach."], ["key", "Property services", "Virtually every property-related service, in one place."]],
+
+    // "How did it all begin?" — the story steps shown as a timeline (chips = small highlighted tags)
+    story: [{"n": "01", "label": "The Bench", "icon": "scale", "text": "RAQBO is the vision of a District & Sessions Judge (R), whose extensive judicial career and first-hand understanding of property-related legal complexities inspired a new approach to Pakistan’s real estate sector."}, {"n": "02", "label": "The Problem", "icon": "shield", "text": "Years of judicial experience highlighted the serious challenges arising from disputed ownership, defective documentation, fraudulent transactions and complicated legal procedures.", "chips": ["Disputed ownership", "Defective documentation", "Fraudulent transactions", "Complicated legal procedures"]}, {"n": "03", "label": "The Vision", "icon": "key", "text": "This understanding gave rise to a powerful vision: a property platform built not merely around advertisements, but around transparency, informed decisions and access to professional expertise."}, {"n": "04", "label": "RAQBO", "icon": "spark", "text": "RAQBO was conceived to turn that vision into reality by connecting property owners, buyers, investors and professionals through technology, while bringing virtually every property-related service within easy reach."}],
 
     founder: {
       name: 'Mr. Safdar Bhatti',                  // founder's name (leave '' to show the title only)

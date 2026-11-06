@@ -53,8 +53,8 @@
     },
     {
       "parameters": {
-        "content": "## RAQBO order status emails\nEmails the **buyer** on every order/payment status, the **vendor** on the steps they act on, and the **RAQBO admin** when a payment screenshot arrives, a dispute opens or a payout is due.\n\n1. Open **Build order email** and change `SECRET` to your own secret (can be the same as the admin alerts one).\n2. Connect your Gmail account in **Send email (Gmail)**.\n3. Activate the workflow and copy the **Production URL** from **Supabase webhook**.\n4. Supabase \u2192 Database \u2192 Webhooks \u2192 Create: table **email_outbox**, event **Insert**, type HTTP Request **POST** to that URL, header `x-raqbo-secret` = your secret.",
-        "height": 300,
+        "content": "## RAQBO order status emails\nEmails the **buyer** on every order/payment status, the **vendor** on the steps they act on, and the **RAQBO admin** when a payment screenshot arrives, a dispute opens or a payout is due.\n\n1. Open **Build order email** and change `SECRET` to your own secret (can be the same as the admin alerts one).\n2. Connect your Gmail account in **Send email (Gmail)**.\n3. Activate the workflow and copy the **Production URL** from **Supabase webhook**.\n4. Supabase \u2192 Database \u2192 Webhooks \u2192 Create: table **email_outbox**, event **Insert**, type HTTP Request **POST** to that URL, header `x-raqbo-secret` = your secret.\n\n**WhatsApp (optional):** open **Build WhatsApp message** and fill `WA_PHONE_ID`, `WA_TOKEN` and the same `SECRET`. Leave `WA_TOKEN` empty to keep WhatsApp off.",
+        "height": 420,
         "width": 420
       },
       "id": "d5373a75-5ce1-4192-a042-a026e5126bc6",
@@ -65,6 +65,47 @@
         0,
         160
       ]
+    },
+    {
+      "id": "89086442-9a4d-4eeb-a372-79586784f3b7",
+      "name": "Build WhatsApp message",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        260,
+        200
+      ],
+      "parameters": {
+        "jsCode": "// RAQBO \u2014 WhatsApp order updates (WhatsApp Business Cloud API by Meta).\n// Fill these in after setting up WhatsApp in Meta Business (see the setup guide). Leave WA_TOKEN empty to switch WhatsApp off.\nconst SECRET = 'CHANGE-ME-raqbo-secret';          // same secret as the Supabase webhook header\nconst WA_PHONE_ID = '';                            // Meta \u2192 WhatsApp \u2192 API Setup \u2192 \"Phone number ID\"\nconst WA_TOKEN = '';                               // permanent access token (System User token)\nconst WA_TEMPLATE = 'raqbo_order_update';          // approved template name (4 variables, see guide)\nconst WA_LANG = 'en';\n\nconst HEAD = {\n  buyer: { order_placed: 'Order placed - please pay into RAQBO escrow and upload your screenshot', quote_requested: 'Quote request sent', quoted: 'Your quote is ready', quote_accepted: 'Quote accepted - please pay into RAQBO escrow',\n    payment_review: 'Payment received - RAQBO is verifying it', payment_rejected: 'Payment could not be verified - please upload again', paid_escrow: 'Payment confirmed and held in RAQBO escrow',\n    dispatched: 'Your order is on the way', delivered: 'Delivered - please confirm receipt', completed: 'Order completed - thank you', released: 'Order closed - vendor paid', disputed: 'Dispute opened - payment stays in escrow',\n    refunded: 'Refund issued', cancelled: 'Order cancelled', declined: 'The vendor declined your order' },\n  vendor: { order_placed: 'New order received', quote_requested: 'New quote request', quote_accepted: 'Your quote was accepted', paid_escrow: 'Payment secured - please dispatch now', completed: 'Buyer confirmed delivery - payout pending',\n    released: 'Payout released', disputed: 'Buyer opened a dispute', refunded: 'Order refunded to buyer', cancelled: 'Buyer cancelled the order' }\n};\nconst out = [];\nif (WA_TOKEN && WA_PHONE_ID) for (const item of $input.all()) {\n  const headers = item.json.headers || {}; if (headers['x-raqbo-secret'] !== SECRET) continue;\n  const { type, table, record: r = {} } = item.json.body || {};\n  if (table !== 'email_outbox' || type !== 'INSERT' || !/^92\\d{10}$/.test(r.to_phone || '')) continue;\n  const head = (HEAD[r.audience] || {})[r.event]; if (!head) continue;\n  const name = String(r.to_name || 'there').split(/\\s+/)[0].slice(0, 30);\n  out.push({ json: { url: `https://graph.facebook.com/v21.0/${WA_PHONE_ID}/messages`, token: WA_TOKEN, to: r.to_phone, event: r.event,\n    body: { messaging_product: 'whatsapp', to: r.to_phone, type: 'template', template: { name: WA_TEMPLATE, language: { code: WA_LANG },\n      components: [{ type: 'body', parameters: [name, r.order_ref, head, r.order_url].map((t) => ({ type: 'text', text: String(t || '').slice(0, 200) })) }] } } } });\n}\nreturn out;\n"
+      }
+    },
+    {
+      "id": "02df1b48-a35a-4f56-9d19-40172177b85a",
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        520,
+        200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "=Bearer {{ $json.token }}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "options": {}
+      },
+      "onError": "continueRegularOutput"
     }
   ],
   "connections": {
@@ -73,6 +114,11 @@
         [
           {
             "node": "Build order email",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Build WhatsApp message",
             "type": "main",
             "index": 0
           }
@@ -84,6 +130,17 @@
         [
           {
             "node": "Send email (Gmail)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build WhatsApp message": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp",
             "type": "main",
             "index": 0
           }

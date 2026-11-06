@@ -1,0 +1,22 @@
+{
+  "name": "RAQBO — Properties · Land · Investment",
+  "short_name": "RAQBO",
+  "description": "Every property solution in one place — buy, sell, rent, construction materials and legal help across Pakistan.",
+  "start_url": "/?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
+  "lang": "en-PK",
+  "categories": ["business", "lifestyle", "shopping"],
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Sell With Us", "url": "/#marketplace", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] },
+    { "name": "List your property", "url": "/?action=post", "icons": [{ "src": "assets/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

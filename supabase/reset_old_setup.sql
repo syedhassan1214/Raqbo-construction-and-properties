@@ -6,7 +6,7 @@
 -- =====================================================================
 drop trigger if exists on_auth_user_created on auth.users;
 drop view if exists public.vendor_rating_summary;
-drop table if exists public.email_outbox, public.raqbo_settings, public.vendor_reviews, public.order_events, public.orders, public.buyer_profiles, public.vendor_products, public.vendor_private, public.vendors cascade;
+drop table if exists public.messages, public.conversations, public.notifications, public.email_outbox, public.raqbo_settings, public.vendor_reviews, public.order_events, public.orders, public.buyer_profiles, public.vendor_products, public.vendor_private, public.vendors cascade;
 drop view if exists public.listing_rating_summary;
 drop table if exists public.reviews, public.favorites, public.reports, public.enquiries, public.listing_media, public.listings, public.profiles cascade;
 drop function if exists public.complete_profile(text, text) cascade;
