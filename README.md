@@ -30,7 +30,7 @@ Complete website + backend setup for RAQBO, a Pakistan property platform.
   - Vendor & buyer directory: material chips, search (shop / area / material / product code), city, *Escrow-enabled only* and *Verified* filters, result counter
   - Vendor cards: logo initials, Verified + Escrow badges, shop & owner, area/city + delivery radius, material tags, "From PKR … / unit" with **live rates**, star rating, Buy Now / Request Quote, WhatsApp, Call
   - Vendor page: catalog with live prices (▲▼ change), stock, minimum order; cart with delivery charges and commercial-buyer discount
-  - **Escrow orders**: buyer pays RAQBO → admin verifies → vendor dispatches (vehicle, driver, ETA) → buyer confirms → admin releases payout; disputes with refund/release
+  - **Escrow orders**: buyer pays RAQBO (Bank, JazzCash, Easypaisa, SadaPay, NayaPay) and uploads a **payment screenshot** → admin checks the screenshot → vendor dispatches (vehicle, driver, ETA) → buyer confirms → admin releases payout; disputes with refund/release
   - Quotes for "price on request" items; buyer accepts and pays through escrow
   - Supplier profile (public shop details + private NTN/CNIC, warehouse, payout account), catalog & pricing dashboard, order management
   - Buyer profile (buyer type, saved delivery addresses), order history and tracking timeline

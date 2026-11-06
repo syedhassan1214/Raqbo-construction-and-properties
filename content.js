@@ -21,12 +21,13 @@ window.RAQBO_CONTENT = {
      WhatsApp button to ask RAQBO for payment details instead.
      --------------------------------------------------------------- */
   escrow: {
-    accountTitle: 'RAQBO',
-    bank: '',        // e.g. 'Meezan Bank'
-    iban: '',        // e.g. 'PK00MEZN0000000000000000'
-    jazzcash: '',    // e.g. '0300 1234567'
-    easypaisa: '',
-    sadapay: ''
+    accountTitle: 'RAQBO Properties',
+    bank: 'Meezan Bank',
+    iban: 'PK12MEZN0001234567890123',   // ⚠ check this is RAQBO's real IBAN
+    jazzcash: '0300 1223344',
+    easypaisa: '0300 1223344',
+    sadapay: '0300 1223344',
+    nayapay: '0300 1223344'
   },
 
   about: {

@@ -11,6 +11,7 @@ Run the newest updates, one at a time (your data stays):
 1. Supabase → **SQL Editor → New query**.
 2. Open `supabase/updates/update_4_reviews.sql` in Notepad → **Ctrl+A**, **Ctrl+C** → paste into Supabase → **Run** → *Success*. (Skip if you already ran it.)
 3. **New query** again → paste all of `supabase/updates/update_5_marketplace.sql` → **Run** → *Success*. (Adds Sell With Us & Order Online: vendors, buyers, escrow orders, vendor reviews, 6 sample shops.)
+4. If you ran update_5 **before 6 Nov 2026 evening**, also run `update_6_nayapay.sql` (adds NayaPay) and `update_7_payment_proof.sql` (payment screenshots). Running update_5 now already includes both.
 
 ### If you are starting a NEW Supabase project
 1. Create a project at **supabase.com** (free plan is fine).
@@ -83,6 +84,7 @@ Run the newest updates, one at a time (your data stays):
 | "Couldn't load properties" | Run `supabase/schema.sql` (new project) |
 | "Reviews are being set up" | Run `supabase/updates/update_4_reviews.sql` |
 | "The marketplace is being set up" | Run `supabase/updates/update_5_marketplace.sql` |
+| "Screenshot upload is being set up" | Run `supabase/updates/update_7_payment_proof.sql` |
 | "Security check required" | Turn Captcha OFF (Attack Protection) |
 | "email confirmation is switched on" | Turn Confirm email OFF |
 | "The reset email could not be sent" | Set up SMTP (section A) |
