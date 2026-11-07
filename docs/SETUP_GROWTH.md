@@ -62,3 +62,15 @@ All amounts are the client's preliminary suggestions and can be changed any time
 - Have the rewards terms (shown on the Rewards page) and the sample documents in Free guides reviewed by the legal team.
 - Android app: the website already installs as an app. A Play Store listing (Trusted Web Activity) and an iPhone app are separate next steps.
 - Communities/discussions and property news are the next phase; they need a moderation plan first.
+
+# RAQBO Verified listings (update_12)
+
+- **Free listing:** anyone can list free. Approved listings show an **Unverified** badge.
+- **RAQBO Verified:** the owner opens My account → **Get RAQBO Verified**, uploads ownership documents (registry, fard, allotment/transfer letter, CNIC, bill), pays the verification fee (default **Rs 2,000**) into RAQBO's account and uploads the payment screenshot.
+- The admin checks the payment and documents in **Admin → RAQBO Verified requests** and presses **Approve** or **Reject** with a reason. The owner is notified either way.
+- Verified listings show **✓ RAQBO Verified** on the card and property page, come right after featured listings in the list, and buyers can tap **Verified only**.
+- If the owner later changes the type, city, area or size, the badge is removed until RAQBO checks again (price changes keep it).
+- Documents are stored privately (bucket `verification-docs`); only the owner and admins can open them.
+- Fee and on/off: Admin → Growth & rewards → Campaign settings → RAQBO Verified listings.
+
+**Setup:** run `supabase/update_12_verification.sql` in Supabase (after update_11). Until then no badges show.
