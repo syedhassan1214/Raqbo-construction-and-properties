@@ -61,3 +61,4 @@ main{max-width:980px;margin:0 auto;padding:24px 16px 48px}.card{display:grid;gri
 @media(max-width:760px){.card{grid-template-columns:1fr}.photo{min-height:240px}}</style></head>
 <body><header><a href="/"><img src="${site}/assets/logo-emblem.webp" alt="RAQBO"></a><b>RAQBO</b></header><main>${body}</main></body></html>`;
 }
+module.exports.page = page;

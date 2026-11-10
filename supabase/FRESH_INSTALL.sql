@@ -4289,3 +4289,851 @@ begin
    where id = auth.uid();
 end $$;
 grant execute on function public.set_my_location(text, text) to authenticated;
+
+
+-- update_17_quicksell.sql
+-- =====================================================================
+-- 25. QuickSell (formerly Urgent Sale): 9-stage workflow and "Assisted sale"
+-- Run after update_16_location.sql. Safe to run more than once.
+-- =====================================================================
+alter table public.urgent_requests drop constraint if exists urgent_requests_stage_check;
+alter table public.urgent_requests add constraint urgent_requests_stage_check check (stage in ('submitted','under_review','documents_checked','market_assessment','matching','offer_received','negotiation','agreement','sold','closed','rejected'));
+
+create or replace function public.urgent_stage_label(p text)
+returns text language sql immutable as $$
+  select case p when 'submitted' then 'Submitted' when 'under_review' then 'Initial review' when 'documents_checked' then 'Document check' when 'market_assessment' then 'Market assessment' when 'matching' then 'Buyer & investor matching'
+    when 'offer_received' then 'Purchase offers' when 'negotiation' then 'Negotiation' when 'agreement' then 'Agreement' when 'sold' then 'Completed'
+    when 'closed' then 'Closed' when 'rejected' then 'Not accepted' else p end $$;
+
+create or replace function public.submit_urgent_sale(p_listing uuid, p jsonb)
+returns void language plpgsql security definer set search_path = public
+as $$
+declare me uuid := auth.uid(); l public.listings; opts text[]; ch text; nm text;
+begin
+  if not (select urgent_enabled from public.platform_settings where id = 1) then raise exception 'QuickSell is not open right now.'; end if;
+  select * into l from public.listings where id = p_listing;
+  if l.id is null or l.owner_id is distinct from me then raise exception 'You can only submit your own property.'; end if;
+  if l.purpose <> 'sale' then raise exception 'QuickSell is for properties for sale.'; end if;
+  opts := array(select distinct x from jsonb_array_elements_text(coalesce(p->'options', '[]')) x where x in ('raqbo','investors','public','assisted'));
+  if coalesce(array_length(opts, 1), 0) = 0 then raise exception 'Choose at least one way to sell.'; end if;
+  if (p->>'min_price') is not null and (p->>'min_price')::bigint > l.price then raise exception 'The minimum price cannot be higher than the expected price.'; end if;
+  ch := case when 'public' = any(opts) then 'public' when 'investors' = any(opts) then 'investors' else 'private' end;
+  perform set_config('raqbo.sys', '1', true);
+  update public.listings set sale_mode = 'urgent', channel = ch where id = l.id;
+  perform set_config('raqbo.sys', '', true);
+  insert into public.urgent_requests (listing_id, owner_id, options, min_price, timeframe, encumbrance_details, advertised_elsewhere, documents_available, urgency_reason, contact_phone)
+  values (l.id, me, opts, nullif(p->>'min_price', '')::bigint, coalesce(nullif(p->>'timeframe', ''), 'flexible'), left(coalesce(p->>'encumbrance_details', ''), 600),
+          coalesce((p->>'advertised_elsewhere')::boolean, false), array(select x from jsonb_array_elements_text(coalesce(p->'documents_available', '[]')) x), left(coalesce(p->>'urgency_reason', ''), 1000), left(coalesce(p->>'contact_phone', ''), 20))
+  on conflict (listing_id) do update set options = excluded.options, min_price = excluded.min_price, timeframe = excluded.timeframe, encumbrance_details = excluded.encumbrance_details,
+     advertised_elsewhere = excluded.advertised_elsewhere, documents_available = excluded.documents_available, urgency_reason = excluded.urgency_reason, contact_phone = excluded.contact_phone, updated_at = now();
+  insert into public.urgent_review (listing_id) values (l.id) on conflict do nothing;
+  perform public.deal_event(l.id, 'stage', 'submitted', 'QuickSell request submitted', 'owner');
+  select coalesce(nullif(full_name, ''), 'A member') into nm from public.profiles where id = me;
+  perform public.notify_admins('deal', 'QuickSell request: ' || left(l.title, 90), nm || ' · ' || l.ref || ' · Rs ' || to_char(l.price, 'FM999,999,999,999') || ' · options: ' || array_to_string(opts, ', '), '#admin/urgent');
+end $$;
+grant execute on function public.submit_urgent_sale(uuid, jsonb) to authenticated;
+
+create or replace function public.make_offer(p_listing uuid, p_amount bigint, p_conditions text)
+returns text language plpgsql security definer set search_path = public
+as $$
+declare me uuid := auth.uid(); l public.listings; src text; no int; o public.offers_deal; days int;
+begin
+  if me is null or not public.is_verified_user() then raise exception 'Please sign in to make an offer.'; end if;
+  select * into l from public.listings where id = p_listing and status = 'published';
+  if l.id is null or l.sale_mode <> 'urgent' then raise exception 'Offers can be made on QuickSell properties.'; end if;
+  if l.owner_id = me then raise exception 'You cannot make an offer on your own property.'; end if;
+  if l.channel = 'private' or (l.channel = 'investors' and not public.is_approved_investor()) then raise exception 'This opportunity is only open to approved RAQBO investors.'; end if;
+  if coalesce(p_amount, 0) < 1000 then raise exception 'Enter your offer in rupees.'; end if;
+  if (select count(*) from public.offers_deal where buyer_id = me and created_at > now() - interval '1 day') >= 10 then raise exception 'You can make up to 10 offers a day.'; end if;
+  if exists (select 1 from public.offers_deal where listing_id = l.id and buyer_id = me and status in ('submitted','countered')) then raise exception 'You already have an open offer on this property. Revise or withdraw it in My RAQBO → Offers.'; end if;
+  src := case when public.is_approved_investor() then 'investor' else 'public' end;
+  select coalesce(max(buyer_no), 0) into no from public.offers_deal where listing_id = l.id and buyer_id = me;
+  if no = 0 then select coalesce(max(buyer_no), 0) + 1 into no from public.offers_deal where listing_id = l.id; end if;
+  select offer_valid_days into days from public.platform_settings where id = 1;
+  insert into public.offers_deal (listing_id, buyer_id, buyer_no, source, amount, conditions, expires_at)
+  values (l.id, me, no, src, p_amount, left(btrim(coalesce(p_conditions, '')), 1000), now() + make_interval(days => days)) returning * into o;
+  update public.urgent_requests set stage = 'offer_received', updated_at = now() where listing_id = l.id and stage in ('submitted','under_review','documents_checked','market_assessment','matching');
+  perform public.deal_event(l.id, 'offer', null, 'Offer of Rs ' || to_char(p_amount, 'FM999,999,999,999') || ' from ' || case src when 'investor' then 'Investor ' else 'Buyer ' end || no, 'buyer');
+  perform public.notify(l.owner_id, 'deal', 'New offer: Rs ' || to_char(p_amount, 'FM999,999,999,999'), left(l.title, 100) || ' · ' || case src when 'investor' then 'RAQBO investor ' else 'Buyer ' end || no || '. Review it in My RAQBO → Offers.', '#my/offers');
+  perform public.notify_admins('deal', 'Offer on ' || l.ref, 'Rs ' || to_char(p_amount, 'FM999,999,999,999') || ' · ' || src || ' · ' || left(l.title, 80), '#admin/urgent');
+  return o.ref;
+end $$;
+grant execute on function public.make_offer(uuid, bigint, text) to authenticated;
+
+create or replace function public.admin_raqbo_offer(p_listing uuid, p_amount bigint, p_conditions text, p_reason text)
+returns text language plpgsql security definer set search_path = public
+as $$
+declare l public.listings; o public.offers_deal; days int;
+begin
+  if not public.has_perm('urgent') then raise exception 'You do not have permission to make RAQBO offers.'; end if;
+  if char_length(btrim(coalesce(p_reason, ''))) < 3 then raise exception 'Please give a reason (it is kept in the audit log).'; end if;
+  select * into l from public.listings where id = p_listing;
+  if l.id is null then raise exception 'Listing not found.'; end if;
+  select offer_valid_days into days from public.platform_settings where id = 1;
+  insert into public.offers_deal (listing_id, buyer_id, buyer_no, source, amount, conditions, expires_at)
+  values (l.id, null, 0, 'raqbo', p_amount, left(btrim(coalesce(p_conditions, '')), 1000), now() + make_interval(days => days)) returning * into o;
+  insert into public.urgent_review (listing_id, raqbo_interest, updated_by) values (l.id, 'offer_made', auth.uid())
+  on conflict (listing_id) do update set raqbo_interest = 'offer_made', updated_by = auth.uid(), updated_at = now();
+  update public.urgent_requests set stage = 'offer_received', updated_at = now() where listing_id = l.id and stage in ('submitted','under_review','documents_checked','market_assessment','matching');
+  perform public.deal_event(l.id, 'offer', null, 'RAQBO made a conditional purchase offer of Rs ' || to_char(p_amount, 'FM999,999,999,999'), 'raqbo');
+  perform public.notify(l.owner_id, 'deal', 'RAQBO made an offer on your property', 'Rs ' || to_char(p_amount, 'FM999,999,999,999') || ' (conditional). Review it in My RAQBO → Offers.', '#my/offers');
+  perform public.audit('urgent.raqbo_offer', 'listing', l.ref, p_reason, jsonb_build_object('amount', p_amount, 'conditions', p_conditions));
+  return o.ref;
+end $$;
+grant execute on function public.admin_raqbo_offer(uuid, bigint, text, text) to authenticated;
+
+create or replace function public.respond_offer(p_offer uuid, p_action text, p_amount bigint, p_note text)
+returns void language plpgsql security definer set search_path = public
+as $$
+declare o public.offers_deal; l public.listings; by_admin boolean;
+begin
+  select * into o from public.offers_deal where id = p_offer;
+  select * into l from public.listings where id = o.listing_id;
+  if o.id is null then raise exception 'Offer not found.'; end if;
+  by_admin := public.has_perm('urgent') and l.owner_id is distinct from auth.uid();
+  if l.owner_id is distinct from auth.uid() and not by_admin then raise exception 'Only the seller can respond to this offer.'; end if;
+  if o.status not in ('submitted','countered') then raise exception 'This offer is already closed.'; end if;
+  if o.expires_at is not null and o.expires_at < now() then update public.offers_deal set status = 'expired', updated_at = now() where id = o.id; raise exception 'This offer has expired.'; end if;
+  if p_action = 'accept' then
+    update public.offers_deal set status = 'accepted', response_note = left(coalesce(p_note, ''), 600), updated_at = now() where id = o.id;
+    update public.offers_deal set status = 'rejected', response_note = 'The seller accepted another offer.', updated_at = now() where listing_id = o.listing_id and id <> o.id and status in ('submitted','countered');
+    update public.urgent_requests set stage = 'agreement', stage_note = 'Offer accepted subject to documents, payment and the final agreement.', updated_at = now() where listing_id = o.listing_id;
+    perform public.deal_event(o.listing_id, 'stage', 'agreement', 'Offer ' || o.ref || ' accepted — RAQBO will arrange the agreement', case when by_admin then 'raqbo' else 'owner' end);
+    perform public.notify_admins('deal', 'Offer accepted: ' || l.ref, 'Rs ' || to_char(o.amount, 'FM999,999,999,999') || ' · arrange the agreement', '#admin/urgent');
+  elsif p_action = 'reject' then
+    update public.offers_deal set status = 'rejected', response_note = left(coalesce(p_note, ''), 600), updated_at = now() where id = o.id;
+    perform public.deal_event(o.listing_id, 'offer', null, 'Offer ' || o.ref || ' declined', case when by_admin then 'raqbo' else 'owner' end);
+  elsif p_action = 'counter' then
+    if coalesce(p_amount, 0) <= o.amount then raise exception 'A counter-offer should be higher than the offer.'; end if;
+    update public.offers_deal set status = 'countered', counter_amount = p_amount, response_note = left(coalesce(p_note, ''), 600), updated_at = now() where id = o.id;
+    update public.urgent_requests set stage = 'negotiation', updated_at = now() where listing_id = o.listing_id and stage in ('submitted','under_review','documents_checked','market_assessment','matching','offer_received');
+    perform public.deal_event(o.listing_id, 'stage', 'negotiation', 'Counter-offer of Rs ' || to_char(p_amount, 'FM999,999,999,999') || ' on ' || o.ref, case when by_admin then 'raqbo' else 'owner' end);
+  else raise exception 'Unknown action.'; end if;
+  if o.buyer_id is not null then
+    perform public.notify(o.buyer_id, 'deal', case p_action when 'accept' then 'Your offer was accepted' when 'reject' then 'Your offer was declined' else 'The seller made a counter-offer' end,
+      left(l.title, 100) || case when p_action = 'counter' then ' · Rs ' || to_char(p_amount, 'FM999,999,999,999') else '' end || case when coalesce(p_note, '') <> '' then ' · ' || left(p_note, 120) else '' end, '#my/offers');
+  end if;
+  if by_admin then perform public.audit('offer.' || p_action, 'offer', o.ref, p_note, jsonb_build_object('amount', p_amount)); end if;
+end $$;
+grant execute on function public.respond_offer(uuid, text, bigint, text) to authenticated;
+
+
+-- update_18_listings.sql
+-- =====================================================================
+-- 26. Listing accuracy: landmarks, availability, marla standard, price
+--     history, periodic availability confirmation and expiry, RAQBO
+--     Direct "partner development" role, site visits for every listing.
+-- Run after update_17_quicksell.sql. Safe to run more than once.
+-- =====================================================================
+alter table public.listings add column if not exists landmarks text not null default '';
+alter table public.listings add column if not exists availability text not null default 'available';
+alter table public.listings add column if not exists marla_sqft smallint;
+alter table public.listings add column if not exists confirmed_at timestamptz not null default now();
+alter table public.listings add column if not exists confirm_reminded_at timestamptz;
+alter table public.listings add column if not exists prev_price bigint;
+alter table public.listings add column if not exists price_changed_at timestamptz;
+do $$ begin alter table public.listings add constraint listings_landmarks_len check (char_length(landmarks) <= 300); exception when duplicate_object then null; end $$;
+do $$ begin alter table public.listings add constraint listings_availability_check check (availability in ('available','under_offer','sold','rented')); exception when duplicate_object then null; end $$;
+do $$ begin alter table public.listings add constraint listings_marla_sqft_check check (marla_sqft is null or marla_sqft in (225, 250, 272)); exception when duplicate_object then null; end $$;
+-- Listings that were not re-confirmed become "expired" (hidden until the owner confirms again)
+alter table public.listings drop constraint if exists listings_status_check;
+alter table public.listings add constraint listings_status_check check (status in ('pending', 'published', 'rejected', 'expired'));
+alter table public.listings drop constraint if exists listings_raqbo_role_check;
+alter table public.listings add constraint listings_raqbo_role_check check (raqbo_role is null or raqbo_role in ('owner','purchaser','agent','facilitator','partner'));
+
+alter table public.platform_settings add column if not exists listing_confirm_days int not null default 60;
+alter table public.platform_settings add column if not exists listing_grace_days int not null default 15;
+alter table public.platform_settings add column if not exists expiry_last_run timestamptz;
+
+-- Price history (public for published listings)
+create table if not exists public.listing_price_history (
+  id          bigserial primary key,
+  listing_id  uuid not null references public.listings (id) on delete cascade,
+  price       bigint not null,
+  at          timestamptz not null default now()
+);
+create index if not exists listing_price_history_idx on public.listing_price_history (listing_id, at);
+alter table public.listing_price_history enable row level security;
+revoke insert, update, delete on public.listing_price_history from anon, authenticated;
+
+-- System fields: owners cannot set them; price changes are recorded automatically
+create or replace function public.listings_zz_v3()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+declare sys boolean := coalesce(current_setting('raqbo.sys', true), '') = '1' or auth.uid() is null or public.is_admin();
+begin
+  if tg_op = 'INSERT' then
+    if not sys then new.confirmed_at := now(); new.prev_price := null; new.price_changed_at := null; new.confirm_reminded_at := null; if new.status = 'expired' then new.status := 'pending'; end if; end if;
+    return new;
+  end if;
+  if not sys then
+    new.confirmed_at := old.confirmed_at; new.confirm_reminded_at := old.confirm_reminded_at;
+    if new.status = 'expired' and old.status <> 'expired' then new.status := old.status; end if;
+  end if;
+  if new.price is distinct from old.price then
+    new.prev_price := old.price; new.price_changed_at := now();
+    new.confirmed_at := now();                      -- changing the price confirms the listing is current
+  elsif not sys then
+    new.prev_price := old.prev_price; new.price_changed_at := old.price_changed_at;
+  end if;
+  return new;
+end $$;
+drop trigger if exists listings_zz_v3 on public.listings;
+create trigger listings_zz_v3 before insert or update on public.listings for each row execute function public.listings_zz_v3();
+
+create or replace function public.listings_price_log()
+returns trigger language plpgsql security definer set search_path = public
+as $$
+begin
+  if tg_op = 'INSERT' or new.price is distinct from old.price then insert into public.listing_price_history (listing_id, price) values (new.id, new.price); end if;
+  return null;
+end $$;
+drop trigger if exists listings_price_log on public.listings;
+create trigger listings_price_log after insert or update of price on public.listings for each row execute function public.listings_price_log();
+insert into public.listing_price_history (listing_id, price, at)
+  select l.id, l.price, coalesce(l.published_at, l.created_at) from public.listings l where not exists (select 1 from public.listing_price_history h where h.listing_id = l.id);
+
+create or replace function public.listing_price_history(p_listing uuid)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('price', h.price, 'at', h.at) order by h.at), '[]'::jsonb)
+  from public.listing_price_history h join public.listings l on l.id = h.listing_id
+  where h.listing_id = p_listing and (l.status = 'published' or l.owner_id = auth.uid() or public.is_admin()) $$;
+grant execute on function public.listing_price_history(uuid) to anon, authenticated;
+
+-- Owner confirms the property is still available (also re-publishes an expired listing)
+create or replace function public.confirm_listing(p_listing uuid, p_availability text default null)
+returns text language plpgsql security definer set search_path = public
+as $$
+declare l public.listings;
+begin
+  select * into l from public.listings where id = p_listing;
+  if l.id is null or l.owner_id is distinct from auth.uid() then raise exception 'You can only confirm your own property.'; end if;
+  if p_availability is not null and p_availability not in ('available','under_offer','sold','rented') then raise exception 'Unknown availability.'; end if;
+  perform set_config('raqbo.sys', '1', true);
+  update public.listings set confirmed_at = now(), confirm_reminded_at = null, availability = coalesce(p_availability, availability),
+    status = case when status = 'expired' then 'published' else status end where id = l.id;
+  perform set_config('raqbo.sys', '', true);
+  return (select status from public.listings where id = l.id);
+end $$;
+grant execute on function public.confirm_listing(uuid, text) to authenticated;
+
+-- Reminders and expiry (runs at most once an hour; called from page loads and from pg_cron when enabled)
+create or replace function public.listings_expire_tick(p_force boolean default false)
+returns int language plpgsql security definer set search_path = public
+as $$
+declare s public.platform_settings; r record; n int := 0;
+begin
+  select * into s from public.platform_settings where id = 1;
+  if s.id is null or (not p_force and s.expiry_last_run is not null and s.expiry_last_run > now() - interval '1 hour') then return 0; end if;
+  update public.platform_settings set expiry_last_run = now() where id = 1;
+  perform set_config('raqbo.sys', '1', true);
+  for r in select id, owner_id, title from public.listings where status = 'published' and not is_sample and owner_id is not null
+             and confirmed_at < now() - make_interval(days => s.listing_confirm_days) and (confirm_reminded_at is null or confirm_reminded_at < confirmed_at) loop
+    update public.listings set confirm_reminded_at = now() where id = r.id;
+    perform public.notify(r.owner_id, 'listing', 'Is your property still available?', left(r.title, 90) || ' · confirm within ' || s.listing_grace_days || ' days to keep it live.', '#my/properties');
+  end loop;
+  for r in select id, owner_id, title from public.listings where status = 'published' and not is_sample and owner_id is not null and raqbo_role is null
+             and confirmed_at < now() - make_interval(days => s.listing_confirm_days + s.listing_grace_days) loop
+    update public.listings set status = 'expired' where id = r.id; n := n + 1;
+    perform public.notify(r.owner_id, 'listing', 'Listing paused — not confirmed', left(r.title, 90) || ' · confirm it is still available to show it again.', '#my/properties');
+  end loop;
+  perform set_config('raqbo.sys', '', true);
+  return n;
+end $$;
+revoke all on function public.listings_expire_tick(boolean) from public, anon, authenticated;
+
+-- Run the expiry check from the auction tick that every visit already calls
+create or replace function public.auction_tick_v3() returns void language plpgsql security definer set search_path = public as $$ begin perform public.listings_expire_tick(false); end $$;
+revoke all on function public.auction_tick_v3() from public, anon, authenticated;
+create or replace function public.auctions_public()
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  perform public.auction_tick();
+  begin perform public.auction_tick_v3(); exception when others then null; end;
+  return jsonb_build_object('now', now(), 'auctions', coalesce((select jsonb_agg(public.auction_card(a, l) order by a.end_at)
+    from public.auctions a join public.listings l on l.id = a.listing_id
+    where l.status = 'published' and (a.status in ('scheduled','provisional','sold') or (a.status in ('reserve_not_met','ended') and a.finalized_at > now() - interval '30 days'))
+      and (a.status not in ('sold') or a.finalized_at > now() - interval '60 days')), '[]'::jsonb));
+end $$;
+grant execute on function public.auctions_public() to anon, authenticated;
+
+-- Admin: every site visit (all listings), and visits to my properties
+create or replace function public.admin_visits()
+returns jsonb language plpgsql security definer set search_path = public as $$
+begin
+  if not (public.has_perm('urgent') or public.has_perm('auctions') or public.has_perm('listings')) then raise exception 'You do not have permission to manage visits.'; end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'listing_id', i.listing_id, 'title', l.title, 'ref', l.ref, 'area', l.area, 'city', l.city, 'status', i.status, 'preferred_at', i.preferred_at, 'confirmed_at', i.confirmed_at, 'note', i.note, 'admin_note', i.admin_note, 'created_at', i.created_at,
+      'who', coalesce(nullif(p.full_name, ''), p.email), 'phone', p.phone, 'owner', coalesce(nullif(o.full_name, ''), o.email), 'owner_phone', o.phone) order by (i.status in ('requested','confirmed')) desc, coalesce(i.confirmed_at, i.preferred_at, i.created_at))
+    from public.inspections i join public.listings l on l.id = i.listing_id join public.profiles p on p.id = i.user_id left join public.profiles o on o.id = l.owner_id where i.created_at > now() - interval '180 days'), '[]'::jsonb);
+end $$;
+grant execute on function public.admin_visits() to authenticated;
+
+create or replace function public.my_property_visits()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'title', l.title, 'status', i.status, 'at', coalesce(i.confirmed_at, i.preferred_at), 'note', i.admin_note) order by coalesce(i.confirmed_at, i.preferred_at) desc), '[]'::jsonb)
+  from public.inspections i join public.listings l on l.id = i.listing_id where l.owner_id = auth.uid() and i.created_at > now() - interval '180 days' $$;
+grant execute on function public.my_property_visits() to authenticated;
+
+-- Allow visit management by staff with listing permission too
+create or replace function public.admin_set_inspection(p_id uuid, p_status text, p_when timestamptz, p_note text)
+returns void language plpgsql security definer set search_path = public
+as $$
+declare i public.inspections; l public.listings;
+begin
+  if not (public.has_perm('urgent') or public.has_perm('auctions') or public.has_perm('listings')) then raise exception 'You do not have permission to manage visits.'; end if;
+  if p_status not in ('requested','confirmed','completed','cancelled') then raise exception 'Unknown status.'; end if;
+  update public.inspections set status = p_status, confirmed_at = coalesce(p_when, confirmed_at, preferred_at), admin_note = left(coalesce(p_note, ''), 600) where id = p_id returning * into i;
+  if i.id is null then raise exception 'Visit not found.'; end if;
+  select * into l from public.listings where id = i.listing_id;
+  perform public.notify(i.user_id, 'deal', case p_status when 'confirmed' then 'Visit confirmed' when 'cancelled' then 'Visit cancelled' when 'completed' then 'Visit completed' else 'Visit updated' end,
+    left(l.title, 100) || coalesce(' · ' || to_char(i.confirmed_at at time zone 'Asia/Karachi', 'DD Mon HH24:MI'), '') || case when coalesce(p_note, '') <> '' then ' · ' || left(p_note, 120) else '' end, '#my/offers');
+  if p_status = 'confirmed' and l.owner_id is not null then
+    perform public.notify(l.owner_id, 'deal', 'Visit booked for your property', left(l.title, 100) || coalesce(' · ' || to_char(i.confirmed_at at time zone 'Asia/Karachi', 'DD Mon HH24:MI'), ''), '#my/offers');
+  end if;
+  perform public.deal_event(i.listing_id, 'inspection', null, 'Visit ' || p_status || coalesce(' for ' || to_char(i.confirmed_at at time zone 'Asia/Karachi', 'DD Mon HH24:MI'), ''), 'raqbo');
+end $$;
+grant execute on function public.admin_set_inspection(uuid, text, timestamptz, text) to authenticated;
+
+do $$
+begin
+  if exists (select 1 from pg_extension where extname = 'pg_cron') then
+    perform cron.unschedule(jobid) from cron.job where jobname = 'raqbo-listing-expiry';
+    perform cron.schedule('raqbo-listing-expiry', '17 * * * *', 'select public.listings_expire_tick(true)');
+  end if;
+exception when others then null;
+end $$;
+
+
+-- update_19_reports.sql
+-- =====================================================================
+-- 27. RAQBO Property Verification Report (unique number + QR check)
+--     and the extended Property Passport (land-record references,
+--     location and photo history, transactions through RAQBO).
+-- Run after update_18_listings.sql. Safe to run more than once.
+-- =====================================================================
+create sequence if not exists public.verification_report_seq;
+alter table public.listing_verifications add column if not exists report_no text;
+alter table public.listing_verifications add column if not exists not_examined text not null default '';
+alter table public.listing_verifications add column if not exists concerns text not null default '';
+alter table public.listing_verifications add column if not exists limitations text not null default '';
+create unique index if not exists listing_verifications_report_no on public.listing_verifications (report_no) where report_no is not null;
+do $$ begin alter table public.listing_verifications add constraint lv_report_text_len check (char_length(not_examined) <= 2000 and char_length(concerns) <= 2000 and char_length(limitations) <= 2000); exception when duplicate_object then null; end $$;
+
+-- Each approval gets a fresh report number (a re-check is a new report)
+create or replace function public.lv_report_no()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'verified' and (tg_op = 'INSERT' or old.status is distinct from 'verified' or new.report_no is null) then
+    new.report_no := 'RQ-VR-' || to_char(now() at time zone 'Asia/Karachi', 'YYYY') || '-' || lpad(nextval('public.verification_report_seq')::text, 6, '0');
+  end if;
+  return new;
+end $$;
+drop trigger if exists lv_report_no on public.listing_verifications;
+create trigger lv_report_no before insert or update on public.listing_verifications for each row execute function public.lv_report_no();
+update public.listing_verifications set report_no = 'RQ-VR-' || to_char(coalesce(decided_at, now()) at time zone 'Asia/Karachi', 'YYYY') || '-' || lpad(nextval('public.verification_report_seq')::text, 6, '0')
+  where status = 'verified' and report_no is null;
+
+-- Old report numbers stay checkable after a re-check or badge removal
+create table if not exists public.verification_reports (
+  report_no    text primary key,
+  listing_id   uuid not null references public.listings (id) on delete cascade,
+  level        text not null,
+  checks       jsonb not null default '[]'::jsonb,
+  not_examined text not null default '',
+  concerns     text not null default '',
+  limitations  text not null default '',
+  issued_at    timestamptz not null default now(),
+  withdrawn_at timestamptz,
+  withdrawn_reason text not null default ''
+);
+alter table public.verification_reports enable row level security;
+revoke insert, update, delete on public.verification_reports from anon, authenticated;
+
+create or replace function public.lv_report_archive()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.status = 'verified' and new.report_no is not null then
+    insert into public.verification_reports (report_no, listing_id, level, checks, not_examined, concerns, limitations, issued_at)
+    values (new.report_no, new.listing_id, new.level, new.checks, new.not_examined, new.concerns, new.limitations, coalesce(new.decided_at, now()))
+    on conflict (report_no) do update set checks = excluded.checks, not_examined = excluded.not_examined, concerns = excluded.concerns, limitations = excluded.limitations, level = excluded.level;
+  end if;
+  if tg_op = 'UPDATE' and old.status = 'verified' and new.status <> 'verified' and old.report_no is not null then
+    update public.verification_reports set withdrawn_at = now(), withdrawn_reason = case when new.status = 'expired' then 'Key property details changed after the check' else 'Verification withdrawn' end where report_no = old.report_no and withdrawn_at is null;
+  end if;
+  return null;
+end $$;
+drop trigger if exists lv_report_archive on public.listing_verifications;
+create trigger lv_report_archive after insert or update on public.listing_verifications for each row execute function public.lv_report_archive();
+insert into public.verification_reports (report_no, listing_id, level, checks, issued_at)
+  select report_no, listing_id, level, checks, coalesce(decided_at, now()) from public.listing_verifications where report_no is not null on conflict do nothing;
+
+-- Admin writes what could not be examined, concerns and limitations
+create or replace function public.admin_set_verification_report(p_listing uuid, p_not_examined text, p_concerns text, p_limitations text)
+returns text language plpgsql security definer set search_path = public as $$
+declare r text;
+begin
+  if not public.has_perm('verification') then raise exception 'You do not have permission to manage verification.'; end if;
+  update public.listing_verifications set not_examined = left(coalesce(p_not_examined, ''), 2000), concerns = left(coalesce(p_concerns, ''), 2000), limitations = left(coalesce(p_limitations, ''), 2000)
+   where listing_id = p_listing returning report_no into r;
+  return r;
+end $$;
+grant execute on function public.admin_set_verification_report(uuid, text, text, text) to authenticated;
+
+-- Public check of a report number (no personal data)
+create or replace function public.verify_report(p_no text)
+returns jsonb language sql stable security definer set search_path = public as $$
+  select jsonb_build_object('report_no', r.report_no, 'level', r.level, 'issued_at', r.issued_at, 'withdrawn_at', r.withdrawn_at, 'withdrawn_reason', r.withdrawn_reason,
+    'current', r.withdrawn_at is null and exists (select 1 from public.listing_verifications v where v.listing_id = r.listing_id and v.report_no = r.report_no and v.status = 'verified'),
+    'checks', r.checks, 'not_examined', r.not_examined, 'concerns', r.concerns, 'limitations', r.limitations,
+    'listing', jsonb_build_object('id', l.id, 'ref', l.ref, 'title', l.title, 'city', l.city, 'area', l.area, 'size', l.size, 'size_unit', l.size_unit, 'type', l.property_type, 'published', l.status = 'published'))
+  from public.verification_reports r join public.listings l on l.id = r.listing_id where r.report_no = upper(btrim(p_no)) $$;
+grant execute on function public.verify_report(text) to anon, authenticated;
+
+-- ---------- Property Passport ----------
+create table if not exists public.property_private (
+  listing_id      uuid primary key references public.listings (id) on delete cascade,
+  land_refs       text not null default '' check (char_length(land_refs) <= 600),   -- khasra / khewat / khatoni / fard / plot numbers
+  ownership_note  text not null default '' check (char_length(ownership_note) <= 600),
+  updated_at      timestamptz not null default now()
+);
+alter table public.property_private enable row level security;
+drop policy if exists "property_private: owner or admin" on public.property_private;
+create policy "property_private: owner or admin" on public.property_private for select using (public.is_admin() or exists (select 1 from public.listings l where l.id = listing_id and l.owner_id = auth.uid()));
+revoke insert, update, delete on public.property_private from anon, authenticated;
+
+create or replace function public.set_property_private(p_listing uuid, p_land_refs text, p_ownership_note text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not exists (select 1 from public.listings where id = p_listing and (owner_id = auth.uid() or public.is_admin())) then raise exception 'You can only update your own property.'; end if;
+  insert into public.property_private (listing_id, land_refs, ownership_note) values (p_listing, left(btrim(coalesce(p_land_refs, '')), 600), left(btrim(coalesce(p_ownership_note, '')), 600))
+  on conflict (listing_id) do update set land_refs = excluded.land_refs, ownership_note = excluded.ownership_note, updated_at = now();
+end $$;
+grant execute on function public.set_property_private(uuid, text, text) to authenticated;
+
+create table if not exists public.listing_changes (
+  id          bigserial primary key,
+  listing_id  uuid not null references public.listings (id) on delete cascade,
+  field       text not null,
+  old_value   text,
+  new_value   text,
+  at          timestamptz not null default now()
+);
+create index if not exists listing_changes_idx on public.listing_changes (listing_id, at);
+alter table public.listing_changes enable row level security;
+revoke insert, update, delete on public.listing_changes from anon, authenticated;
+create or replace function public.listings_log_changes()
+returns trigger language plpgsql security definer set search_path = public as $$
+begin
+  if new.city is distinct from old.city then insert into public.listing_changes (listing_id, field, old_value, new_value) values (new.id, 'city', old.city, new.city); end if;
+  if new.area is distinct from old.area then insert into public.listing_changes (listing_id, field, old_value, new_value) values (new.id, 'area', old.area, new.area); end if;
+  if new.size is distinct from old.size or new.size_unit is distinct from old.size_unit then insert into public.listing_changes (listing_id, field, old_value, new_value) values (new.id, 'size', old.size || ' ' || old.size_unit, new.size || ' ' || new.size_unit); end if;
+  if new.property_type is distinct from old.property_type then insert into public.listing_changes (listing_id, field, old_value, new_value) values (new.id, 'type', old.property_type, new.property_type); end if;
+  return null;
+end $$;
+drop trigger if exists listings_log_changes on public.listings;
+create trigger listings_log_changes after update on public.listings for each row execute function public.listings_log_changes();
+
+create or replace function public.passport_data(p_listing uuid)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare l public.listings; allowed boolean;
+begin
+  select * into l from public.listings where id = p_listing;
+  if l.id is null then return null; end if;
+  allowed := l.owner_id = auth.uid() or public.is_admin();
+  if l.status <> 'published' and not allowed then return null; end if;
+  return jsonb_build_object(
+    'property_id', l.ref, 'listed_at', coalesce(l.published_at, l.created_at),
+    'location_history', coalesce((select jsonb_agg(jsonb_build_object('field', c.field, 'from', c.old_value, 'to', c.new_value, 'at', c.at) order by c.at) from public.listing_changes c where c.listing_id = l.id), '[]'::jsonb),
+    'photo_history', coalesce((select jsonb_agg(jsonb_build_object('day', d, 'photos', n) order by d) from (select date_trunc('day', m.created_at) d, count(*) n from public.listing_media m where m.listing_id = l.id and m.kind = 'photo' group by 1) x), '[]'::jsonb),
+    'reports', coalesce((select jsonb_agg(jsonb_build_object('report_no', r.report_no, 'level', r.level, 'issued_at', r.issued_at, 'withdrawn_at', r.withdrawn_at) order by r.issued_at desc) from public.verification_reports r where r.listing_id = l.id), '[]'::jsonb),
+    'transactions', coalesce((select jsonb_agg(t order by t->>'at') from (
+        select jsonb_build_object('kind', 'auction', 'at', a.finalized_at, 'text', case a.status when 'sold' then 'Sold through a RAQBO auction' when 'provisional' then 'Auction ended — provisional winning bidder' when 'reserve_not_met' then 'Auctioned — reserve not met' when 'cancelled' then 'Auction cancelled' else 'Auction closed' end, 'amount', case when a.status in ('sold','provisional') then a.high_amount end) t
+          from public.auctions a where a.listing_id = l.id and a.finalized_at is not null
+        union all
+        select jsonb_build_object('kind', 'quicksell', 'at', u.updated_at, 'text', case u.stage when 'sold' then 'Sold through RAQBO QuickSell' when 'closed' then 'QuickSell request closed' else 'QuickSell request not accepted' end, 'amount', null)
+          from public.urgent_requests u where u.listing_id = l.id and u.stage in ('sold','closed','rejected')) z), '[]'::jsonb),
+    'report', (select jsonb_build_object('report_no', v.report_no, 'level', v.level, 'checks', v.checks, 'not_examined', v.not_examined, 'concerns', v.concerns, 'limitations', v.limitations, 'issued_at', v.decided_at)
+                 from public.listing_verifications v where v.listing_id = l.id and v.status = 'verified'),
+    'land_refs_on_file', exists (select 1 from public.property_private p where p.listing_id = l.id and p.land_refs <> ''),
+    'private', case when allowed then (select jsonb_build_object('land_refs', p.land_refs, 'ownership_note', p.ownership_note) from public.property_private p where p.listing_id = l.id) end,
+    'documents', case when allowed then (select v.documents from public.listing_verifications v where v.listing_id = l.id) end,
+    'can_see_private', allowed);
+end $$;
+grant execute on function public.passport_data(uuid) to anon, authenticated;
+
+
+-- update_20_services.sql
+-- =====================================================================
+-- 28. RAQBO Services catalogue (5 groups, fees, tracking numbers),
+--     Overseas services, a stronger Property Wanted, RAQBO projects
+--     (progress updates and payment plans) and construction-material
+--     specifications and bulk enquiries.
+-- Run after update_19_reports.sql. Safe to run more than once.
+-- =====================================================================
+
+-- ---------- Service requests: any catalogue service, with extra form details ----------
+alter table public.enquiries drop constraint if exists enquiries_service_check;
+alter table public.enquiries add constraint enquiries_service_check check (service ~ '^[a-z][a-z0-9_]{1,39}$');
+alter table public.enquiries add column if not exists details jsonb not null default '{}'::jsonb;
+do $$ begin alter table public.enquiries add constraint enquiries_details_len check (char_length(details::text) <= 4000); exception when duplicate_object then null; end $$;
+
+-- Fees shown on each service (admin-editable; text such as "From Rs 5,000" or "Quoted after review")
+alter table public.platform_settings add column if not exists service_fees jsonb not null default '{}'::jsonb;
+alter table public.platform_settings add column if not exists services_off jsonb not null default '[]'::jsonb;   -- service keys hidden from the public
+create or replace function public.admin_save_services(p_fees jsonb, p_off jsonb, p_reason text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not (public.has_perm('services') or public.has_perm('settings')) then raise exception 'You do not have permission to change services.'; end if;
+  if jsonb_typeof(coalesce(p_fees, '{}'::jsonb)) <> 'object' or jsonb_typeof(coalesce(p_off, '[]'::jsonb)) <> 'array' then raise exception 'Invalid services data.'; end if;
+  if char_length(coalesce(p_fees, '{}'::jsonb)::text) > 8000 then raise exception 'Too much fee text.'; end if;
+  update public.platform_settings set service_fees = coalesce(p_fees, '{}'::jsonb), services_off = coalesce(p_off, '[]'::jsonb), updated_at = now() where id = 1;
+  perform public.audit('settings.services', 'settings', 'services', p_reason, jsonb_build_object('fees', p_fees, 'off', p_off));
+end $$;
+grant execute on function public.admin_save_services(jsonb, jsonb, text) to authenticated;
+
+create or replace function public.my_service_requests()
+returns jsonb language sql stable security definer set search_path = public as $$
+  select coalesce(jsonb_agg(jsonb_build_object('ref', ref, 'service', service, 'message', message, 'property_ref', property_ref, 'status', status, 'client_note', client_note, 'details', details, 'created_at', created_at, 'updated_at', updated_at) order by created_at desc), '[]'::jsonb)
+  from public.enquiries where user_id = auth.uid() $$;
+grant execute on function public.my_service_requests() to authenticated;
+
+-- ---------- Property Wanted: possession, budget range, bedrooms, preferences ----------
+alter table public.wanted_posts add column if not exists possession text not null default 'any';
+alter table public.wanted_posts add column if not exists min_budget bigint;
+alter table public.wanted_posts add column if not exists min_beds int;
+alter table public.wanted_posts add column if not exists prefs text[] not null default '{}';
+do $$ begin alter table public.wanted_posts add constraint wanted_v20_check check (possession in ('any','vacant','tenanted','under_construction') and (min_budget is null or min_budget > 0) and (min_beds is null or min_beds between 0 and 20) and cardinality(prefs) <= 12); exception when duplicate_object then null; end $$;
+
+create or replace function public.wanted_posts_after_insert()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare r record;
+begin
+  for r in select distinct on (l.owner_id) l.owner_id, l.id, l.title from public.listings l
+            where l.status = 'published' and not l.is_sample and l.owner_id is not null and l.owner_id <> new.user_id
+              and l.purpose = case new.purpose when 'buy' then 'sale' else 'rent' end and l.property_type = new.property_type
+              and lower(l.city) = lower(new.city) and (new.area = '' or l.area ilike '%' || new.area || '%')
+              and (new.max_budget is null or l.price <= new.max_budget) and (new.min_budget is null or l.price >= new.min_budget)
+              and (new.possession = 'any' or l.possession is null or l.possession = new.possession or (new.possession = 'vacant' and l.possession = 'owner_occupied'))
+              and (new.min_beds is null or l.property_type in ('Plot','Commercial') or coalesce(l.bedrooms, 0) >= new.min_beds)
+            order by l.owner_id, l.published_at desc limit 100 loop
+    perform public.notify(r.owner_id, 'alert', 'Someone wants a property like yours',
+      new.property_type || ' to ' || new.purpose || ' in ' || coalesce(nullif(new.area, '') || ', ', '') || new.city || coalesce(' · up to Rs ' || to_char(new.max_budget, 'FM999,999,999,999'), '') || '. Reply privately through RAQBO messages — your number stays hidden.',
+      '#wanted/' || new.id);
+  end loop;
+  return new;
+end $$;
+
+-- ---------- RAQBO projects: progress updates and payment plans ----------
+alter table public.listings add column if not exists payment_plan jsonb not null default '[]'::jsonb;
+do $$ begin alter table public.listings add constraint listings_payment_plan_check check (jsonb_typeof(payment_plan) = 'array' and char_length(payment_plan::text) <= 4000); exception when duplicate_object then null; end $$;
+create or replace function public.listings_zz_v20()
+returns trigger language plpgsql security definer set search_path = public as $$
+declare sys boolean := coalesce(current_setting('raqbo.sys', true), '') = '1' or auth.uid() is null or public.is_admin();
+begin
+  if not sys then new.payment_plan := case when tg_op = 'INSERT' then '[]'::jsonb else old.payment_plan end; end if;
+  return new;
+end $$;
+drop trigger if exists listings_zz_v20 on public.listings;
+create trigger listings_zz_v20 before insert or update on public.listings for each row execute function public.listings_zz_v20();
+create table if not exists public.project_updates (
+  id          uuid primary key default gen_random_uuid(),
+  listing_id  uuid not null references public.listings (id) on delete cascade,
+  title       text not null check (char_length(btrim(title)) between 2 and 140),
+  body        text not null default '' check (char_length(body) <= 2000),
+  progress    int check (progress between 0 and 100),
+  created_at  timestamptz not null default now()
+);
+create index if not exists project_updates_idx on public.project_updates (listing_id, created_at desc);
+alter table public.project_updates enable row level security;
+drop policy if exists "project_updates: read" on public.project_updates;
+create policy "project_updates: read" on public.project_updates for select using (exists (select 1 from public.listings l where l.id = listing_id and (l.status = 'published' or public.is_admin())));
+grant select on public.project_updates to anon, authenticated;
+revoke insert, update, delete on public.project_updates from anon, authenticated;
+
+create or replace function public.admin_project_update(p_listing uuid, p_title text, p_body text, p_progress int)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare nid uuid; l public.listings; r record;
+begin
+  if not public.has_perm('listings') then raise exception 'You do not have permission to manage projects.'; end if;
+  select * into l from public.listings where id = p_listing; if l.id is null then raise exception 'Listing not found.'; end if;
+  if l.raqbo_role is null then raise exception 'Progress updates are for RAQBO Direct properties only.'; end if;
+  insert into public.project_updates (listing_id, title, body, progress) values (p_listing, btrim(p_title), left(btrim(coalesce(p_body, '')), 2000), p_progress) returning id into nid;
+  for r in select f.user_id from public.favorites f where f.listing_id = p_listing limit 2000 loop
+    perform public.notify(r.user_id, 'listing', 'Project update: ' || left(l.title, 100), btrim(p_title), '#property/' || l.id);
+  end loop;
+  perform public.audit('project.update', 'listing', l.ref, null, jsonb_build_object('title', p_title, 'progress', p_progress));
+  return nid;
+end $$;
+grant execute on function public.admin_project_update(uuid, text, text, int) to authenticated;
+create or replace function public.admin_project_delete_update(p_id uuid)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.has_perm('listings') then raise exception 'You do not have permission to manage projects.'; end if;
+  delete from public.project_updates where id = p_id;
+end $$;
+grant execute on function public.admin_project_delete_update(uuid) to authenticated;
+create or replace function public.admin_set_payment_plan(p_listing uuid, p_plan jsonb)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.has_perm('listings') then raise exception 'You do not have permission to manage projects.'; end if;
+  if jsonb_typeof(p_plan) <> 'array' then raise exception 'The payment plan must be a list.'; end if;
+  perform set_config('raqbo.sys', '1', true);
+  update public.listings set payment_plan = p_plan where id = p_listing;
+  perform set_config('raqbo.sys', '', true);
+end $$;
+grant execute on function public.admin_set_payment_plan(uuid, jsonb) to authenticated;
+
+-- ---------- Construction materials: product specifications ----------
+alter table public.vendor_products add column if not exists brand text not null default '';
+alter table public.vendor_products add column if not exists specs text not null default '';
+do $$ begin alter table public.vendor_products add constraint vendor_products_specs_len check (char_length(brand) <= 60 and char_length(specs) <= 600); exception when duplicate_object then null; end $$;
+
+
+-- update_21_admin.sql
+-- =====================================================================
+-- 29. Business control: complaints & disputes centre, refunds register,
+--     revenue & expense reporting, new dashboard KPIs, WhatsApp click
+--     tracking, construction-cost rates, and optional admin two-factor
+--     sign-in (Supabase TOTP; switched OFF until an admin turns it on).
+-- Run after update_20_services.sql. Safe to run more than once.
+-- =====================================================================
+
+-- ---------- Admin two-factor sign-in (optional) ----------
+alter table public.platform_settings add column if not exists admin_mfa_required boolean not null default false;
+create or replace function public.mfa_ok()
+returns boolean language sql stable security definer set search_path = public as $$
+  select not coalesce((select admin_mfa_required from public.platform_settings where id = 1), false) or coalesce(auth.jwt() ->> 'aal', '') = 'aal2' $$;
+create or replace function public.is_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin') and public.mfa_ok() $$;
+create or replace function public.has_perm(p text)
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and (admin_perms is null or p = any(admin_perms))) and public.mfa_ok() $$;
+create or replace function public.is_full_admin()
+returns boolean language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin' and admin_perms is null) and public.mfa_ok() $$;
+create or replace function public.admin_set_mfa_required(p_on boolean, p_reason text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.is_full_admin() then raise exception 'Only a full admin can change two-factor sign-in.'; end if;
+  if p_on and coalesce(auth.jwt() ->> 'aal', '') <> 'aal2' then raise exception 'Set up two-factor sign-in on your own account and sign in with it first — otherwise you would lock yourself out.'; end if;
+  update public.platform_settings set admin_mfa_required = p_on, updated_at = now() where id = 1;
+  perform public.audit(case when p_on then 'security.mfa_on' else 'security.mfa_off' end, 'settings', 'admin_mfa', p_reason, null);
+end $$;
+grant execute on function public.admin_set_mfa_required(boolean, text) to authenticated;
+
+-- ---------- Complaints & disputes ----------
+create table if not exists public.complaints (
+  id               uuid primary key default gen_random_uuid(),
+  ref              text not null unique default ('RQ-CMP-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
+  user_id          uuid references public.profiles (id) on delete set null,
+  name             text not null default '',
+  kind             text not null check (kind in ('listing','order','service','auction','quicksell','payment','advertiser','other')),
+  subject_ref      text not null default '' check (char_length(subject_ref) <= 80),
+  details          text not null check (char_length(btrim(details)) between 10 and 3000),
+  refund_requested bigint check (refund_requested is null or refund_requested > 0),
+  status           text not null default 'open' check (status in ('open','investigating','resolved','rejected')),
+  resolution       text not null default '' check (char_length(resolution) <= 2000),
+  created_at       timestamptz not null default now(),
+  updated_at       timestamptz not null default now()
+);
+create index if not exists complaints_status_idx on public.complaints (status, created_at desc);
+alter table public.complaints enable row level security;
+drop policy if exists "complaints: own or admin" on public.complaints;
+create policy "complaints: own or admin" on public.complaints for select using (user_id = auth.uid() or public.is_admin());
+revoke insert, update, delete on public.complaints from anon, authenticated;
+grant select on public.complaints to authenticated;
+
+create or replace function public.submit_complaint(p_kind text, p_subject_ref text, p_details text, p_refund bigint)
+returns text language plpgsql security definer set search_path = public as $$
+declare r text; nm text;
+begin
+  if auth.uid() is null then raise exception 'Please sign in first.'; end if;
+  if (select count(*) from public.complaints where user_id = auth.uid() and created_at > now() - interval '1 day') >= 5 then raise exception 'You have sent several complaints today. RAQBO will reply to those first.'; end if;
+  select coalesce(nullif(full_name, ''), 'Member') into nm from public.profiles where id = auth.uid();
+  insert into public.complaints (user_id, name, kind, subject_ref, details, refund_requested) values (auth.uid(), nm, p_kind, left(btrim(coalesce(p_subject_ref, '')), 80), btrim(p_details), nullif(p_refund, 0)) returning ref into r;
+  perform public.notify_admins('system', 'New complaint ' || r, left(btrim(p_details), 140), 'tab:complaints');
+  return r;
+end $$;
+grant execute on function public.submit_complaint(text, text, text, bigint) to authenticated;
+
+create or replace function public.admin_update_complaint(p_id uuid, p_status text, p_resolution text)
+returns void language plpgsql security definer set search_path = public as $$
+declare c public.complaints;
+begin
+  if not (public.has_perm('services') or public.has_perm('finance')) then raise exception 'You do not have permission to handle complaints.'; end if;
+  if p_status not in ('open','investigating','resolved','rejected') then raise exception 'Unknown status.'; end if;
+  if p_status in ('resolved','rejected') and char_length(btrim(coalesce(p_resolution, ''))) < 5 then raise exception 'Write the outcome for the member (at least 5 characters).'; end if;
+  update public.complaints set status = p_status, resolution = left(btrim(coalesce(p_resolution, '')), 2000), updated_at = now() where id = p_id returning * into c;
+  if c.id is null then raise exception 'Complaint not found.'; end if;
+  if c.user_id is not null then perform public.notify(c.user_id, 'service', 'Your complaint ' || c.ref || ' — ' || case p_status when 'investigating' then 'being investigated' when 'resolved' then 'resolved' when 'rejected' then 'closed' else 'updated' end, coalesce(nullif(btrim(p_resolution), ''), 'See My RAQBO → Complaints.'), '#my/complaints'); end if;
+  perform public.audit('complaint.' || p_status, 'complaint', c.ref, p_resolution, null);
+end $$;
+grant execute on function public.admin_update_complaint(uuid, text, text) to authenticated;
+
+-- ---------- Refunds register ----------
+create table if not exists public.refunds (
+  id            uuid primary key default gen_random_uuid(),
+  ref           text not null unique default ('RQ-RFD-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
+  complaint_id  uuid references public.complaints (id) on delete set null,
+  kind          text not null default 'other' check (kind in ('verification','service','order','auction_deposit','quicksell','featured','other')),
+  related_ref   text not null default '' check (char_length(related_ref) <= 80),
+  payee         text not null check (char_length(btrim(payee)) between 2 and 120),
+  amount        bigint not null check (amount > 0),
+  method        text not null default '' check (char_length(method) <= 40),
+  reason        text not null check (char_length(btrim(reason)) between 3 and 600),
+  status        text not null default 'requested' check (status in ('requested','approved','paid','rejected')),
+  txn_id        text not null default '' check (char_length(txn_id) <= 80),
+  created_by    uuid references public.profiles (id) on delete set null,
+  created_at    timestamptz not null default now(),
+  decided_at    timestamptz,
+  paid_at       timestamptz
+);
+create index if not exists refunds_status_idx on public.refunds (status, created_at desc);
+alter table public.refunds enable row level security;
+drop policy if exists "refunds: finance" on public.refunds;
+create policy "refunds: finance" on public.refunds for select using (public.has_perm('finance'));
+revoke insert, update, delete on public.refunds from anon, authenticated;
+grant select on public.refunds to authenticated;
+
+create or replace function public.admin_add_refund(p_kind text, p_related_ref text, p_payee text, p_amount bigint, p_method text, p_reason text, p_complaint uuid default null)
+returns text language plpgsql security definer set search_path = public as $$
+declare r text;
+begin
+  if not public.has_perm('finance') then raise exception 'You do not have permission to manage refunds.'; end if;
+  insert into public.refunds (kind, related_ref, payee, amount, method, reason, complaint_id, created_by)
+  values (p_kind, left(btrim(coalesce(p_related_ref, '')), 80), btrim(p_payee), p_amount, left(btrim(coalesce(p_method, '')), 40), btrim(p_reason), p_complaint, auth.uid()) returning ref into r;
+  perform public.audit('refund.request', 'refund', r, p_reason, jsonb_build_object('amount', p_amount, 'payee', p_payee));
+  return r;
+end $$;
+grant execute on function public.admin_add_refund(text, text, text, bigint, text, text, uuid) to authenticated;
+
+create or replace function public.admin_set_refund(p_id uuid, p_status text, p_txn text, p_reason text)
+returns void language plpgsql security definer set search_path = public as $$
+declare f public.refunds;
+begin
+  if not public.has_perm('finance') then raise exception 'You do not have permission to manage refunds.'; end if;
+  select * into f from public.refunds where id = p_id; if f.id is null then raise exception 'Refund not found.'; end if;
+  if p_status not in ('approved','paid','rejected') then raise exception 'Unknown status.'; end if;
+  if f.status in ('paid','rejected') then raise exception 'This refund is already closed.'; end if;
+  if p_status = 'paid' and char_length(btrim(coalesce(p_txn, ''))) < 3 then raise exception 'Enter the bank transaction ID of the refund payment.'; end if;
+  if f.created_by = auth.uid() and p_status in ('approved','paid') and exists (select 1 from public.profiles where role = 'admin' and id <> auth.uid() and admin_perms is null or (role = 'admin' and id <> auth.uid() and 'finance' = any(admin_perms))) and char_length(btrim(coalesce(p_reason, ''))) < 3 then
+    raise exception 'Another finance admin should approve a refund you created — or give a reason (kept in the audit log).';
+  end if;
+  update public.refunds set status = p_status, txn_id = case when p_status = 'paid' then btrim(p_txn) else txn_id end, decided_at = coalesce(decided_at, now()), paid_at = case when p_status = 'paid' then now() else paid_at end where id = p_id;
+  perform public.audit('refund.' || p_status, 'refund', f.ref, p_reason, jsonb_build_object('amount', f.amount, 'txn', p_txn));
+end $$;
+grant execute on function public.admin_set_refund(uuid, text, text, text) to authenticated;
+
+-- ---------- Revenue & expenses ----------
+create table if not exists public.finance_entries (
+  id          uuid primary key default gen_random_uuid(),
+  kind        text not null check (kind in ('income','expense')),
+  category    text not null check (char_length(btrim(category)) between 2 and 60),
+  amount      bigint not null check (amount > 0),
+  entry_date  date not null default (now() at time zone 'Asia/Karachi')::date,
+  note        text not null default '' check (char_length(note) <= 300),
+  ref         text not null default '' check (char_length(ref) <= 80),
+  created_by  uuid references public.profiles (id) on delete set null,
+  created_at  timestamptz not null default now()
+);
+create index if not exists finance_entries_date_idx on public.finance_entries (entry_date desc);
+alter table public.finance_entries enable row level security;
+drop policy if exists "finance_entries: finance" on public.finance_entries;
+create policy "finance_entries: finance" on public.finance_entries for select using (public.has_perm('finance'));
+revoke insert, update, delete on public.finance_entries from anon, authenticated;
+grant select on public.finance_entries to authenticated;
+create or replace function public.admin_add_finance(p_kind text, p_category text, p_amount bigint, p_date date, p_note text, p_ref text)
+returns uuid language plpgsql security definer set search_path = public as $$
+declare nid uuid;
+begin
+  if not public.has_perm('finance') then raise exception 'You do not have permission to record finances.'; end if;
+  insert into public.finance_entries (kind, category, amount, entry_date, note, ref, created_by) values (p_kind, btrim(p_category), p_amount, coalesce(p_date, (now() at time zone 'Asia/Karachi')::date), left(btrim(coalesce(p_note, '')), 300), left(btrim(coalesce(p_ref, '')), 80), auth.uid()) returning id into nid;
+  perform public.audit('finance.' || p_kind, 'finance', coalesce(nullif(p_ref, ''), p_category), p_note, jsonb_build_object('amount', p_amount, 'category', p_category));
+  return nid;
+end $$;
+grant execute on function public.admin_add_finance(text, text, bigint, date, text, text) to authenticated;
+create or replace function public.admin_delete_finance(p_id uuid, p_reason text)
+returns void language plpgsql security definer set search_path = public as $$
+declare f public.finance_entries;
+begin
+  if not public.has_perm('finance') then raise exception 'You do not have permission to record finances.'; end if;
+  if char_length(btrim(coalesce(p_reason, ''))) < 3 then raise exception 'Give a reason for deleting this entry.'; end if;
+  delete from public.finance_entries where id = p_id returning * into f;
+  if f.id is not null then perform public.audit('finance.delete', 'finance', coalesce(nullif(f.ref, ''), f.category), p_reason, to_jsonb(f)); end if;
+end $$;
+grant execute on function public.admin_delete_finance(uuid, text) to authenticated;
+
+-- Monthly report: recorded income and expenses plus refunds paid
+create or replace function public.admin_finance_report(p_from date, p_to date)
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+begin
+  if not public.has_perm('finance') then raise exception 'You do not have permission to see finances.'; end if;
+  return jsonb_build_object(
+    'entries', coalesce((select jsonb_agg(to_jsonb(e) order by e.entry_date desc, e.created_at desc) from public.finance_entries e where e.entry_date between p_from and p_to), '[]'::jsonb),
+    'refunds_paid', coalesce((select jsonb_agg(jsonb_build_object('ref', r.ref, 'amount', r.amount, 'paid_at', r.paid_at, 'payee', r.payee, 'kind', r.kind) order by r.paid_at desc) from public.refunds r where r.status = 'paid' and (r.paid_at at time zone 'Asia/Karachi')::date between p_from and p_to), '[]'::jsonb));
+end $$;
+grant execute on function public.admin_finance_report(date, date) to authenticated;
+
+-- ---------- WhatsApp click tracking (anonymous counts only) ----------
+create table if not exists public.wa_clicks (
+  id          bigint generated always as identity primary key,
+  listing_id  uuid references public.listings (id) on delete cascade,
+  source      text not null default '' check (char_length(source) <= 40),
+  at          timestamptz not null default now()
+);
+create index if not exists wa_clicks_at_idx on public.wa_clicks (at desc);
+alter table public.wa_clicks enable row level security;
+revoke all on public.wa_clicks from anon, authenticated;
+create or replace function public.track_whatsapp(p_listing uuid, p_source text)
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if (select count(*) from public.wa_clicks where at > now() - interval '1 minute') > 600 then return; end if;   -- simple flood guard
+  insert into public.wa_clicks (listing_id, source) values ((select id from public.listings where id = p_listing), left(coalesce(p_source, ''), 40));
+end $$;
+grant execute on function public.track_whatsapp(uuid, text) to anon, authenticated;
+
+-- ---------- Construction cost calculator rates (admin-editable, per sq ft) ----------
+alter table public.platform_settings add column if not exists cost_rates jsonb not null default '{"grey":3150,"economy":5200,"standard":6800,"premium":10000}'::jsonb;
+alter table public.platform_settings add column if not exists refund_rules text not null default '';
+alter table public.platform_settings add column if not exists analytics_id text not null default '';
+do $$ begin alter table public.platform_settings add constraint platform_analytics_id_check check (analytics_id = '' or analytics_id ~ '^G-[A-Z0-9]{4,14}$'); exception when duplicate_object then null; end $$;
+create or replace function public.admin_save_analytics(p_id text, p_reason text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.has_perm('settings') then raise exception 'You do not have permission to change business settings.'; end if;
+  update public.platform_settings set analytics_id = upper(btrim(coalesce(p_id, ''))), updated_at = now() where id = 1;
+  perform public.audit('settings.analytics', 'settings', 'platform', p_reason, jsonb_build_object('id', p_id));
+end $$;
+grant execute on function public.admin_save_analytics(text, text) to authenticated;
+create or replace function public.admin_save_misc(p_cost_rates jsonb, p_refund_rules text, p_reason text default '')
+returns void language plpgsql security definer set search_path = public as $$
+begin
+  if not public.has_perm('settings') then raise exception 'You do not have permission to change business settings.'; end if;
+  if jsonb_typeof(p_cost_rates) <> 'object' then raise exception 'Invalid rates.'; end if;
+  update public.platform_settings set cost_rates = p_cost_rates, refund_rules = left(coalesce(p_refund_rules, ''), 4000), updated_at = now() where id = 1;
+  perform public.audit('settings.misc', 'settings', 'platform', p_reason, jsonb_build_object('cost_rates', p_cost_rates));
+end $$;
+grant execute on function public.admin_save_misc(jsonb, text, text) to authenticated;
+
+-- ---------- Extra dashboard numbers ----------
+create or replace function public.admin_kpis_v3()
+returns jsonb language plpgsql stable security definer set search_path = public as $$
+declare m0 date := date_trunc('month', now() at time zone 'Asia/Karachi')::date;
+begin
+  if not public.is_admin() then raise exception 'Admins only.'; end if;
+  return jsonb_build_object(
+    'complaints_open', (select count(*) from public.complaints where status in ('open','investigating')),
+    'refunds_pending', (select coalesce(sum(amount), 0) from public.refunds where status in ('requested','approved')),
+    'refunds_pending_n', (select count(*) from public.refunds where status in ('requested','approved')),
+    'income_month', (select coalesce(sum(amount), 0) from public.finance_entries where kind = 'income' and entry_date >= m0),
+    'expense_month', (select coalesce(sum(amount), 0) from public.finance_entries where kind = 'expense' and entry_date >= m0) + (select coalesce(sum(amount), 0) from public.refunds where status = 'paid' and paid_at >= m0),
+    'wa_clicks_7d', (select count(*) from public.wa_clicks where at > now() - interval '7 days'),
+    'wa_top', coalesce((select jsonb_agg(x) from (select l.ref, l.title, count(*) n from public.wa_clicks w join public.listings l on l.id = w.listing_id where w.at > now() - interval '30 days' group by l.ref, l.title order by n desc limit 5) x), '[]'::jsonb),
+    'services_open', (select count(*) from public.enquiries where status in ('new','in_progress','awaiting_client')),
+    'wanted_active', (select count(*) from public.wanted_posts where status = 'published'),
+    'verified_live', (select count(*) from public.listing_verifications v join public.listings l on l.id = v.listing_id where v.status = 'verified' and l.status = 'published'),
+    'published', (select count(*) from public.listings where status = 'published' and not is_sample),
+    'visits_open', (select count(*) from public.inspections where status = 'requested'));
+end $$;
+grant execute on function public.admin_kpis_v3() to authenticated;
