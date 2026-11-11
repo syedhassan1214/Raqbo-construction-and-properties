@@ -15,6 +15,18 @@
     {
       "source": "/property/:city",
       "destination": "/api/area?city=:city"
+    },
+    {
+      "source": "/official-auctions",
+      "destination": "/api/oa"
+    },
+    {
+      "source": "/official-auctions/:slug",
+      "destination": "/api/oa?slug=:slug"
+    },
+    {
+      "source": "/official-auction/:ref",
+      "destination": "/api/oa?ref=:ref"
     }
   ],
   "headers": [

@@ -56,4 +56,4 @@ Everything runs on **Supabase** (free plan): sign-in, Postgres database with row
 Never put the Supabase **service_role** key in the website.
 
 ## Contact details used on the website
-WhatsApp 0312 3140622 · UAN / WhatsApp 0300 1223344 · raqbo.official@gmail.com · raqbo.pk
+WhatsApp / UAN 0300 1223344 (wa.me/923001223344) · raqbo.official@gmail.com · raqbo.pk
