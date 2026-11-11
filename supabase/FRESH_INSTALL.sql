@@ -5387,7 +5387,7 @@ grant execute on function public.admin_kpis_v4() to authenticated;
 
 -- ---------- Data backup export (full admin) ----------
 create or replace function public.admin_export_backup()
-returns jsonb language plpgsql stable security definer set search_path = public as $$
+returns jsonb language plpgsql volatile security definer set search_path = public as $$
 begin
   if not public.is_full_admin() then raise exception 'Only a full admin can export a backup.'; end if;
   perform public.audit('backup.export', 'settings', 'backup', null, null);
