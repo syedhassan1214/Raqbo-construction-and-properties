@@ -4764,7 +4764,7 @@ grant execute on function public.passport_data(uuid) to anon, authenticated;
 
 -- update_20_services.sql
 -- =====================================================================
--- 28. RAQBO Services catalogue (5 groups, fees, tracking numbers),
+-- 28. RAQBO Connect catalogue (5 groups, fees, tracking numbers),
 --     Overseas services, a stronger Property Wanted, RAQBO projects
 --     (progress updates and payment plans) and construction-material
 --     specifications and bulk enquiries.
