@@ -57,7 +57,7 @@ window.RAQBO_CONTENT = {
       name: '',                  // founder's name (leave '' to show the title only)
       title: 'District & Sessions Judge (R)',
       role: 'Founder, RAQBO',
-      photo: 'images/founder.jpg',                // if this file is missing, the RAQBO logo is shown instead
+      photo: '',                                  // add 'images/founder.jpg' here once the founder approves a photo; empty shows the RAQBO logo
       heading: 'How did it all begin?',
       // one line per paragraph
       message: ["RAQBO is the vision of a District & Sessions Judge (R), whose extensive judicial career and first-hand understanding of property-related legal complexities inspired a new approach to Pakistan’s real estate sector.", "Years of judicial experience highlighted the serious challenges arising from disputed ownership, defective documentation, fraudulent transactions and complicated legal procedures. This understanding gave rise to a powerful vision: a property platform built not merely around advertisements, but around transparency, informed decisions and access to professional expertise.", "RAQBO was conceived to turn that vision into reality by connecting property owners, buyers, investors and professionals through technology, while bringing virtually every property-related service within easy reach."]
