@@ -27,14 +27,6 @@
     {
       "source": "/official-auction/:ref",
       "destination": "/api/oa?ref=:ref"
-    },
-    {
-      "source": "/pay/return",
-      "destination": "/api/pay/return"
-    },
-    {
-      "source": "/pay/webhook",
-      "destination": "/api/pay/webhook"
     }
   ],
   "headers": [
