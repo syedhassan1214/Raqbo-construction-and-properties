@@ -44,6 +44,7 @@ module.exports = async (req, res) => {
         <a class="btn ghost" href="https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(`Hi RAQBO, I'm interested in ${l.title} (${l.ref}) — ${url}`)}">Ask RAQBO on WhatsApp</a></div></article>` }));
 };
 
+const WA = String(require('./_config').WA_NUMBER || '923001223344').replace(/\D/g, '');
 function page({ site, title, desc, image, url, ld, body, noindex }) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)}</title><meta name="description" content="${esc(desc)}">${noindex ? '<meta name="robots" content="noindex">' : `<link rel="canonical" href="${esc(url)}">`}
@@ -59,6 +60,6 @@ main{max-width:980px;margin:0 auto;padding:24px 16px 48px}.card{display:grid;gri
 .specs{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 14px;padding:0;list-style:none}.specs li{padding:6px 10px;border:1px solid #2a2620;border-radius:10px;color:#e8e2d5;font-size:14px}.desc{color:#bdb6a8;font-size:15px}
 .btn{display:block;margin-top:12px;padding:14px 18px;border-radius:12px;background:linear-gradient(135deg,#f6d27c,#e6ac42);color:#16120a;font-weight:800;text-align:center;text-decoration:none}.btn.ghost{background:transparent;border:1px solid #e6ac42;color:#f6d27c}
 @media(max-width:760px){.card{grid-template-columns:1fr}.photo{min-height:240px}}</style></head>
-<body><header><a href="/"><img src="${site}/assets/logo-emblem.webp" alt="RAQBO"></a><b>RAQBO</b></header><main>${body}</main></body></html>`;
+<body><header><a href="/"><img src="${site}/assets/logo-emblem.webp" alt="RAQBO"></a><b>RAQBO</b><a href="https://wa.me/${WA}" rel="noopener" style="margin-left:auto;color:#f6d27c;text-decoration:none;font-weight:700">WhatsApp 0300 1223344</a></header><main>${body}</main><footer style="max-width:980px;margin:0 auto;padding:0 16px 32px;color:#8d8676;font-size:14px">RAQBO · <a href="https://wa.me/${WA}" style="color:#f6d27c">WhatsApp / UAN 0300 1223344</a> · <a href="mailto:raqbo.official@gmail.com" style="color:#f6d27c">raqbo.official@gmail.com</a> · <a href="/" style="color:#f6d27c">raqbo.pk</a></footer></body></html>`;
 }
 module.exports.page = page;
