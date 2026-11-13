@@ -213,7 +213,7 @@
   function gwBand() {
     const p = gw.pub; let el = $('#gw-band');
     if (!p || !p.campaign_on) { if (el) el.remove(); return; }
-    if (!el) { const after = $('.trust-strip') || $('#home'); if (!after) return; el = document.createElement('section'); el.id = 'gw-band'; el.className = 'gw-band'; el.setAttribute('aria-label', 'RAQBO Founding Members Club'); after.after(el); }
+    if (!el) { const after = $('.property-section') || $('.trust-strip') || $('#home'); if (!after) return; el = document.createElement('section'); el.id = 'gw-band'; el.className = 'gw-band'; el.setAttribute('aria-label', 'RAQBO Founding Members Club'); after.after(el); }
     const left = Math.max(0, (p.founding_cap || 0) - (p.founding_taken || 0)); const pct = p.founding_cap ? Math.min(100, Math.round((p.founding_taken / p.founding_cap) * 100)) : 0;
     const me = gw.me; const signed = isComplete();
     const perks = [

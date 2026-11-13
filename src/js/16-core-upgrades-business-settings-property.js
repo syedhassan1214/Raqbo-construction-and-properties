@@ -220,7 +220,7 @@
     ];
   }
   function coreRails() {
-    let host = $('#core-rails'); const anchor = $('#gw-band') || $('.trust-strip'); if (!anchor) return;
+    let host = $('#core-rails'); const anchor = $('#gw-band') || $('.property-section') || $('.trust-strip'); if (!anchor) return;
     if (!host) { host = document.createElement('div'); host.id = 'core-rails'; anchor.after(host); } else if (host.previousElementSibling !== anchor) anchor.after(host);
     const defs = coreRailDefs().filter((d) => d.list.length || d.always);
     host.innerHTML = defs.map((d) => d.section ? d.section : `<section class="rail" id="${esc(d.id)}" aria-label="${esc(d.title)}"><div class="container"><div class="rail-head"><div><span class="rail-kicker">${d.live ? '<i class="live-dot"></i>' : ''}${esc(d.kicker)}</span><h2>${esc(d.title)}</h2><p>${esc(d.sub)}</p></div>${d.action ? `<button type="button" class="button button-ghost rail-more" data-core="rail" data-to="${esc(d.action[1])}">${esc(d.action[0])} ${DI(DIC.arrow, 15)}</button>` : ''}</div>

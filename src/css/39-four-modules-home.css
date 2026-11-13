@@ -1,0 +1,124 @@
+/* ===================================================================
+   The four modules on the front page
+   =================================================================== */
+
+/* ---------- the nav: four tabs instead of eight links ----------
+   The tabs are buttons now, so they have to be dressed the same way the
+   header already dresses its links, or they vanish into the dark bar. */
+.main-nav{display:flex;align-items:center;gap:17px;flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+.main-nav::-webkit-scrollbar{display:none}
+.site-header .main-nav .nav-mod{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;height:36px;min-height:0;padding:0 14px;border:0;border-radius:10px;background:none;color:#d9d2c3;font:700 13px var(--font-brand);letter-spacing:.01em;white-space:nowrap;cursor:pointer;text-decoration:none;transition:background .15s,color .15s}
+.site-header .main-nav .nav-mod:hover,.site-header .main-nav .nav-mod.on,.site-header .main-nav .nav-mod[aria-expanded="true"]{color:#fff;background:rgba(227,173,69,.12)}
+.site-header .main-nav .nav-mod .nav-chev{color:var(--gold,#e3ad45);transition:transform .2s}
+.site-header .main-nav .nav-mod.on .nav-chev,.site-header .main-nav .nav-mod[aria-expanded="true"] .nav-chev{transform:rotate(180deg)}
+.site-header .main-nav .nav-aside{flex:0 0 auto;margin-left:auto;height:36px;padding:0 12px;display:inline-flex;align-items:center;border-radius:10px;color:#9b948a;font:600 12px var(--font-brand);white-space:nowrap;text-decoration:none;transition:color .15s}
+.site-header .main-nav .nav-aside:hover{color:#fff}
+@media(max-width:860px){
+  .main-nav{gap:4px}
+  .site-header .main-nav .nav-mod{padding:0 10px;font-size:12px}
+  .site-header .main-nav .nav-aside{margin-left:4px;font-size:11.5px;padding:0 9px}
+}
+
+/* ---------- what sits inside each module ---------- */
+.mod-panel{position:absolute;left:0;right:0;top:100%;z-index:60;background:var(--surface,#fff);border-top:1px solid var(--line);border-bottom:1px solid var(--line);box-shadow:0 24px 48px -24px rgba(0,0,0,.28);animation:modIn .18s ease}
+@keyframes modIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+.nav-row{position:relative}
+.mod-in{padding:22px 0 26px}
+.mod-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.mod-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.mod-item{display:flex;align-items:flex-start;gap:12px;padding:13px 14px;border:1px solid transparent;border-radius:12px;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;text-decoration:none;transition:border-color .15s ease,background .15s ease,transform .15s ease}
+.mod-item:hover,.mod-item:focus-visible{border-color:var(--line);background:var(--surface-2,rgba(0,0,0,.025));transform:translateY(-1px)}
+.mod-ico{flex:0 0 38px;width:38px;height:38px;display:grid;place-items:center;border-radius:10px;background:color-mix(in srgb,var(--gold,#b8893a) 12%,transparent);color:var(--gold,#b8893a)}
+.mod-txt{min-width:0}
+.mod-txt b{display:block;font-size:14px;font-weight:650;letter-spacing:-.005em}
+.mod-txt small{display:block;margin-top:3px;font-size:12px;line-height:1.45;color:var(--ink-3)}
+@media(max-width:860px){
+  .mod-grid,.mod-grid-3{grid-template-columns:1fr 1fr;gap:6px}
+  .mod-in{padding:16px 0 18px}
+  .mod-ico{flex-basis:32px;width:32px;height:32px;border-radius:9px}
+  .mod-txt small{display:none}
+}
+@media(max-width:520px){
+  .mod-grid,.mod-grid-3{grid-template-columns:1fr}
+  .mod-panel{max-height:70vh;overflow-y:auto}
+}
+
+/* ---------- the search looks in whichever module you pick ---------- */
+.mod-pills{display:flex;gap:4px;margin:0 0 14px;padding:4px;border-radius:999px;background:var(--surface-2,rgba(0,0,0,.05));overflow-x:auto;scrollbar-width:none}
+.mod-pills::-webkit-scrollbar{display:none}
+.mod-pills button{flex:1 1 auto;min-width:84px;padding:9px 14px;border:0;border-radius:999px;background:none;color:var(--ink-2);font:inherit;font-size:13px;font-weight:600;white-space:nowrap;cursor:pointer;transition:background .15s ease,color .15s ease}
+.mod-pills button.active{background:var(--surface,#fff);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+.sm-note{margin:12px 0 14px;font-size:12.5px;line-height:1.55;color:var(--ink-3)}
+.sm-body[data-sm-body="marketplace"] .search-location,.sm-body[data-sm-body="projects"] .search-selects{margin-bottom:0}
+@media(max-width:620px){.mod-pills button{min-width:0;padding:8px 11px;font-size:12px}}
+
+/* ---------- a shorter banner, so the page starts sooner ---------- */
+.hero{min-height:0}
+.hero-content{padding-top:clamp(28px,4vw,56px);padding-bottom:clamp(22px,3vw,40px)}
+.hero-copy h1{font-size:clamp(30px,4.6vw,58px);line-height:1.04}
+.hero-copy>p{max-width:52ch;font-size:clamp(14px,1.1vw,16px);line-height:1.55}
+.hero-proof{margin-top:14px}
+.hero-bottom{display:none}
+@media(max-width:860px){
+  .hero-content{padding-top:24px;padding-bottom:18px}
+  .hero-copy h1{font-size:clamp(27px,8vw,38px)}
+  .hero-copy>p{font-size:13.5px;line-height:1.5}
+  .hero-actions{gap:8px}
+}
+
+/* the banner's foot: the social links, and nothing else */
+.hero-connect{justify-content:center}
+.hero-social{flex-wrap:wrap;justify-content:center}
+
+/* ---------- the module sections lower down the page ---------- */
+.fm-mods{padding:clamp(44px,5vw,76px) 0}
+.fm-mods-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin-top:26px}
+.fm-mod{position:relative;display:flex;flex-direction:column;gap:12px;padding:22px 20px 20px;border:1px solid var(--line);border-radius:18px;background:var(--surface);overflow:hidden;transition:border-color .2s ease,transform .2s ease,box-shadow .2s ease}
+.fm-mod:hover{border-color:var(--gold,#b8893a);transform:translateY(-3px);box-shadow:0 18px 36px -22px rgba(0,0,0,.3)}
+.fm-mod-ico{width:44px;height:44px;display:grid;place-items:center;border-radius:12px;background:color-mix(in srgb,var(--gold,#b8893a) 13%,transparent);color:var(--gold,#b8893a)}
+.fm-mod h3{margin:0;font-size:17px;letter-spacing:-.01em}
+.fm-mod>p{margin:0;font-size:13px;line-height:1.55;color:var(--ink-2);flex:1 1 auto}
+.fm-mod-list{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:5px}
+.fm-mod-list li{font-size:11.5px;padding:3px 9px;border-radius:999px;border:1px solid var(--line);color:var(--ink-3);white-space:nowrap}
+.fm-mod .button{width:100%;justify-content:center;padding:10px 14px;font-size:13px}
+.fm-mod-n{position:absolute;top:16px;right:18px;font-size:11px;font-weight:700;letter-spacing:.14em;color:var(--ink-3);opacity:.5}
+@media(max-width:1020px){.fm-mods-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:560px){
+  .fm-mods-grid{grid-template-columns:1fr;gap:10px}
+  .fm-mod{padding:18px 16px 16px;border-radius:14px}
+  .fm-mod-list li{font-size:11px}
+}
+
+/* ---------- the projects page: upcoming / running ---------- */
+.fm-prj-seg{margin:0 0 18px}
+.fm-prj-empty{margin-top:14px}
+
+/* a tighter banner on a phone, where every pixel above the fold counts */
+@media(max-width:620px){
+  .hero-copy .eyebrow{margin-bottom:8px;font-size:10px}
+  .hero-copy h1{font-size:clamp(25px,7.4vw,33px);margin:0 0 8px}
+  .hero-copy>p{font-size:13px;line-height:1.48;margin:0 0 14px;max-width:40ch}
+  .hero-actions .button{padding:11px 16px;font-size:13.5px}
+  .hero-proof{margin-top:11px;font-size:11.5px}
+  .hero-content{padding-top:18px;padding-bottom:14px}
+  .hero-connect{padding:8px 0}
+}
+
+/* all four modules have to fit a phone, so each tab carries a short name */
+.nav-short{display:none}
+@media(max-width:700px){
+  .nav-full{display:none}
+  .nav-short{display:inline}
+  .site-header .main-nav .nav-mod{padding:0 9px;font-size:12.5px;gap:3px}
+  .site-header .main-nav .nav-aside{display:none}
+}
+
+/* The compare bar is parked off-screen with a transform that does not quite
+   clear a short viewport, so 60px of an empty bar sat over the app bar on a
+   phone. Hiding it outright while it holds nothing. */
+.cmp-bar:not(.show){visibility:hidden;pointer-events:none}
+
+/* the banner's paragraph earns three lines on a phone, not five */
+@media(max-width:620px){
+  .hero-copy>p{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+}
