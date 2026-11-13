@@ -1452,7 +1452,8 @@ body.lv-open{overflow:hidden}
 /* story */
 .au-story{background:#0b0b0c;color:#f1ece1}
 .au-story-grid{display:grid;grid-template-columns:400px minmax(0,1fr);gap:64px;align-items:start}
-.au-story-side{position:sticky;top:90px}
+.au-story-side{position:static}
+.au-story-main{min-width:0}.au-story-main .au-endorse{margin-top:28px}
 .au-story h2{margin:14px 0 28px;color:#fff;font:800 clamp(30px,3.8vw,46px)/1.08 var(--font-display);letter-spacing:-.02em}
 .au-story .au-frame{box-shadow:0 30px 70px rgba(0,0,0,.5)}
 .au-story .au-founder-badge{position:relative;left:auto;right:auto;bottom:auto;margin:-28px 20px 0}
@@ -4869,8 +4870,8 @@ window.RAQBO_CONFIG = {
         <div class="eyebrow eyebrow-light"><span></span> OUR STORY</div><h2>${esc(f.heading || 'How did it all begin?')}</h2>
         <div class="au-founder-photo"><div class="au-frame${f.photo ? '' : ' au-frame-logo'}">${f.photo ? `<img src="${esc(f.photo)}" alt="${esc([f.name, f.title].filter(Boolean).join(', '))}">` : ''}<span class="au-frame-mark" aria-hidden="true"><img data-au-logo alt=""></span><span class="au-logo-tag"><img data-au-logo alt="RAQBO"><b>RAQBO</b></span></div><div class="au-founder-badge"><b>${esc(f.name || f.title)}</b><span>${esc(f.name ? f.title + ' · ' + (f.role || 'Founder') : (f.role || 'Founder, RAQBO'))}</span></div></div>
       </div>
-      <p class="au-endorse">RAQBO is a private business. The founder's former judicial office is mentioned as professional background only and does not imply any government or judicial endorsement.</p>
-      <ol class="au-timeline">${(A.story && A.story.length ? A.story : (f.message || []).map((t, i) => ({ n: '0' + (i + 1), label: '', text: t }))).map((st, i) => `<li class="rv" style="--d:${i * 90}ms"><span class="au-tl-dot">${ai(st.icon || 'spark', 18)}</span><div><span class="au-tl-n">${esc(st.n || '')}${st.label ? ' · ' + esc(st.label) : ''}</span><p>${esc(st.text)}</p>${st.chips ? `<div class="au-tl-chips">${st.chips.map((c) => `<span>${esc(c)}</span>`).join('')}</div>` : ''}</div></li>`).join('')}</ol>
+      <div class="au-story-main"><ol class="au-timeline">${(A.story && A.story.length ? A.story : (f.message || []).map((t, i) => ({ n: '0' + (i + 1), label: '', text: t }))).map((st, i) => `<li class="rv" style="--d:${i * 90}ms"><span class="au-tl-dot">${ai(st.icon || 'spark', 18)}</span><div><span class="au-tl-n">${esc(st.n || '')}${st.label ? ' · ' + esc(st.label) : ''}</span><p>${esc(st.text)}</p>${st.chips ? `<div class="au-tl-chips">${st.chips.map((c) => `<span>${esc(c)}</span>`).join('')}</div>` : ''}</div></li>`).join('')}</ol>
+      <p class="au-endorse">RAQBO is a private business. The founder's former judicial office is mentioned as professional background only and does not imply any government or judicial endorsement.</p></div>
     </div></section>
     <section class="au-ambition" id="au-ambition"><div class="au-in rv">
       <span class="au-amb-mark" aria-hidden="true">“</span>
