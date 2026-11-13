@@ -370,6 +370,7 @@
             ${!rent && l.price > 0 ? emiHTML(l) : ''}
             <button type="button" class="pp-adv" data-adv="${esc(String((!l.sample && l.ownerId) || ''))}" aria-label="See all properties from this advertiser"><span class="pp-avatar">${esc(initials)}</span><div><b>${esc(l.ownerName || 'Advertiser')}</b><small>${esc(roleText)}</small>${gwFoundingChip(l.ownerId)}${coreIdChip(l.ownerId)}</div><span class="pp-adv-go" aria-hidden="true">${DI('<path d="M9 5l7 7-7 7"></path>', 16)}</span></button>
             ${live ? `${dlContactAllowed(l) ? '<button type="button" class="button button-whatsapp pp-wide" data-pp="contact">Contact on WhatsApp</button>' : '<p class="form-hint">Confidential investor opportunity — offers and questions go through RAQBO.</p>'}
+            <button type="button" class="button button-primary pp-wide" data-chat="support" data-property-ref="${esc(l.ref || l.id)}">Message the RAQBO team</button><p class="form-hint">Property reference <b>${esc(l.ref || l.id)}</b> will be added to your message.</p>
             ${dlContactAllowed(l) && !(db.session && l.ownerId && l.ownerId === db.session.userId) ? `<button type="button" class="button button-outline pp-wide pp-chat" data-chat="listing" data-id="${esc(l.id)}">${DI(DIC.chat, 16)} Message ${l.ownerId ? 'the advertiser' : 'RAQBO'}</button>` : ''}
             <div class="pp-card-row"><button type="button" class="button button-outline ${fav ? 'is-saved' : ''}" data-pp="fav">${fav ? '♥ Saved' : '♡ Save'}</button><button type="button" class="button button-outline" data-pp="share">Share</button></div>
             <button type="button" class="link-button pp-report" data-pp="report">Report this property</button>` : '<p class="form-hint">Contact options appear once the listing is approved.</p>'}
@@ -466,7 +467,7 @@
     const card = openModal(`
       <div class="eyebrow"><span></span> CONTACT ADVERTISER</div><h2>Ask about this property</h2>
       <p class="modal-lead">${esc(l.title)} · ${esc(l.area)}, ${esc(l.city)}</p>
-      <div class="advertiser-box"><b>${esc(l.ownerName || 'Listing advertiser')}</b><span>${esc(l.role === 'Owner' ? 'Direct owner' : l.role)}</span><span>Phone: ${esc(maskPhone(l.ownerPhone))} — shared after phone verification</span></div>
+      <div class="advertiser-box"><b>${esc(l.ownerName || 'Listing advertiser')}</b><span>${esc(l.role === 'Owner' ? 'Direct owner' : l.role)}</span><span>Contact is coordinated by RAQBO.</span></div>
       <form class="modal-form" novalidate>
         <div class="modal-form-row"><label>Your name<input name="name" value="${esc(s.name || '')}" autocomplete="name"></label><label>Mobile number<input name="phone" value="${esc(s.phone || '')}" inputmode="tel" placeholder="03XX XXXXXXX"></label></div>
         <label>Message<textarea name="message">Hi, I am interested in “${esc(l.title)}”. Is it still available, and when could I arrange a viewing?</textarea></label>

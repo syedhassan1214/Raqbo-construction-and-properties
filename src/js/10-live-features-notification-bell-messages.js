@@ -158,12 +158,16 @@
     lv.inbox.addEventListener('input', (e) => { const t = e.target.closest('.lv-compose textarea'); if (t) { t.style.height = 'auto'; t.style.height = Math.min(140, t.scrollHeight) + 'px'; } });
     return lv.inbox;
   }
-  function openInbox(convId) {
+  function openInbox(convId, draft) {
     requireSignIn(async () => {
       closeModal(); closeNavMenus(); lvClosePanel(); const el = lvShell(); el.hidden = false; document.body.classList.add('lv-open');
       if (!/^#messages/.test(location.hash)) { try { history.pushState({ lv: 1 }, '', '#messages' + (convId ? '/' + convId : '')); } catch { /* ignore */ } }
       lvWatchInbox(); await lvLoadConvs();
-      if (convId) lvOpenThread(convId); else if (!matchMedia('(max-width: 760px)').matches && lv.convs[0]) lvOpenThread(lv.convs[0].id);
+      if (convId) {
+        await lvOpenThread(convId);
+        const input = lv.conv === convId && $('.lv-compose textarea', el);
+        if (input && draft && !input.value.trim()) input.value = draft;
+      } else if (!matchMedia('(max-width: 760px)').matches && lv.convs[0]) lvOpenThread(lv.convs[0].id);
       else { const x = $('.lv-x', el); if (x) x.focus({ preventScroll: true }); }
     });
   }
@@ -229,7 +233,7 @@
   function startChat(topic, btn) {
     requireSignIn(async () => {
       const done = btn ? busy(btn, 'Opening chat…') : () => {};
-      try { const cid = await LV.start(topic); done(); if (pp.el && !pp.el.hidden) closeDetails({ fromHistory: true }); if (mk.el && !mk.el.hidden) closeMarket({ fromHistory: true }); openInbox(cid); }
+      try { const cid = await LV.start(topic); const ref = btn && btn.dataset.chat === 'support' && btn.dataset.propertyRef; done(); if (pp.el && !pp.el.hidden) closeDetails({ fromHistory: true }); if (mk.el && !mk.el.hidden) closeMarket({ fromHistory: true }); openInbox(cid, ref ? `Hi RAQBO, I have a question about property ${ref}.` : ''); }
       catch (err) { done(); toast(err.message); }
     });
   }

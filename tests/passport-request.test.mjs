@@ -66,3 +66,33 @@ test('passport request tracks the public property and requester only after savin
   assert.equal(app.state.calls.length, 1);
   assert.match(app.state.errors[0][1], /no longer available/);
 });
+
+test('passport does not mark every example document as checked for a verified listing', async () => {
+  const start = source.indexOf('  async function openPassport(id)');
+  const end = source.indexOf('\n  async function passportQr', start);
+  assert(start >= 0 && end > start, 'Passport renderer not found');
+  let html = '';
+  const listing = { id: 'listing-1', title: 'House', type: 'Plot', purpose: 'sale', status: 'pending', area: 'Area', city: 'City', role: 'Owner', utilities: [] };
+  const card = { classList: { add() {} } };
+  const context = {
+    byId: () => listing,
+    openModal: () => card,
+    PF: { trust: async () => ({ verification: { status: 'verified', level: 'documents', checks: [{ key: 'identity', label: 'Identity', result: 'ok' }] } }) },
+    document: { body: { contains: () => true } },
+    esc: (v) => String(v ?? ''),
+    DI: (icon) => icon,
+    DIC: { shield: 'shield', doc: 'document-icon', check: 'check-icon', info: 'info-icon' },
+    GI: { print: 'print' },
+    RAQBO_ROLES: {}, PLAN: {}, POSSESSION: {}, UTIL: {}, ENCUMB: {},
+    db: { session: null },
+    fmtDay: () => 'date', fmtPrice: () => 'price', fmtSize: () => 'size',
+    setBody: (_card, value) => { html = value; },
+    $: () => ({ disabled: true }),
+    vrPassportExtend: async () => {}
+  };
+  await runInNewContext(source.slice(start, end) + '\nopenPassport("listing-1")', context);
+  const section = html.match(/<section><h3>6\. Ownership documents[\s\S]*?<\/section>/)[0];
+  assert.match(section, /not a list of documents received or checked/);
+  assert.doesNotMatch(section, /check-icon|class="seen"/);
+  assert.match(html, /check-icon Identity/);
+});

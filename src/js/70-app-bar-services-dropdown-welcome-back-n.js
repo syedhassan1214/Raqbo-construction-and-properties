@@ -236,12 +236,15 @@
     }
 
     // 2. Compare up to 3 properties side by side
-    let cmp = (store.get('compare', []) || []).filter((id) => byId(id));
-    const saveCmp = () => store.set('compare', cmp);
+    const savedCmp = store.get('compare', []);
+    let cmp = Array.isArray(savedCmp) ? [...new Set(savedCmp.filter((id) => typeof id === 'string'))].slice(0, 3) : [];
+    const saveCmp = () => { if (!store.set('compare', cmp)) toast('Comparison is available for this visit, but could not be saved on this device.'); };
     document.body.insertAdjacentHTML('beforeend', '<div class="cmp-bar" role="region" aria-label="Compare properties"><span><b data-cmp-n>0</b> selected to compare</span><button type="button" class="button button-primary" data-cmp-open>Compare now</button><button type="button" class="cmp-clear" data-cmp-clear>Clear</button></div>');
     const bar = $('.cmp-bar');
     const paintCmp = () => {
-      cmp = cmp.filter((id) => byId(id));
+      if (!db.loaded || loadError) { bar.classList.remove('show'); return; }
+      const available = cmp.filter((id) => { const l = byId(id); return l && l.status === 'published' && isPublicListing(l); });
+      if (available.length !== cmp.length) { cmp = available; saveCmp(); }
       $('[data-cmp-n]', bar).textContent = cmp.length; bar.classList.toggle('show', cmp.length > 0);
       $$('.cmp-btn').forEach((b) => { const on = cmp.includes(b.dataset.cmp); b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); b.lastChild.textContent = on ? 'Comparing' : 'Compare'; });
     };
@@ -257,12 +260,13 @@
     const yesNo = (v) => (v ? 'Yes' : 'No');
     function openCompare() {
       const L = cmp.map(byId).filter(Boolean); if (L.length < 2) { toast('Pick at least 2 properties to compare.'); return; }
+      const samePurpose = L.every((l) => l.purpose === L[0].purpose);
       const minPrice = Math.min(...L.map((l) => Number(l.price) || Infinity)); const ppms = L.map(ppm).filter(Boolean); const minPpm = ppms.length ? Math.min(...ppms) : 0;
       const maxSize = Math.max(...L.map((l) => marlaOf(l) || 0));
       const row = (label, f) => `<tr><th scope="row">${esc(label)}</th>${L.map((l) => `<td>${f(l)}</td>`).join('')}</tr>`;
-      const html = `<div class="eyebrow"><span></span> COMPARE</div><h2>Compare properties</h2><p class="modal-lead">Side by side, so the differences are easy to see. Lowest price, lowest price per marla and largest size are marked in green.</p>
+      const html = `<div class="eyebrow"><span></span> COMPARE</div><h2>Compare properties</h2><p class="modal-lead">Side by side, so the differences are easy to see. ${samePurpose ? 'Lowest price, lowest price per marla and largest size are marked in green.' : 'Sale prices and monthly rents are not ranked against each other. Lowest sale price per marla and largest size are marked in green.'}</p>
         <div class="cmp-wrap"><table class="cmp-table"><thead><tr><th></th>${L.map((l) => `<td><div class="cmp-img" ${mediaAttr(l.photos[0], true)}></div><b style="display:block;margin-top:8px">${esc(l.title)}</b><button type="button" class="cmp-x" data-cmp-remove="${esc(l.id)}">Remove</button></td>`).join('')}</tr></thead><tbody>
-        ${row('Price', (l) => `<span class="${Number(l.price) === minPrice && L.length > 1 ? 'cmp-best' : ''}">${esc(fmtPrice(l.price))}${l.purpose === 'rent' ? ' / month' : ''}</span>`)}
+        ${row('Price', (l) => `<span class="${samePurpose && Number(l.price) === minPrice && L.length > 1 ? 'cmp-best' : ''}">${esc(fmtPrice(l.price))}${l.purpose === 'rent' ? ' / month' : ''}</span>`)}
         ${row('Price per marla', (l) => (ppm(l) ? `<span class="${ppm(l) === minPpm ? 'cmp-best' : ''}">${esc(fmtPrice(ppm(l)))}</span>` : '—'))}
         ${row('Location', (l) => esc([l.area, l.city].filter(Boolean).join(', ')))}
         ${row('For', (l) => (l.purpose === 'rent' ? 'Rent' : 'Sale'))}
