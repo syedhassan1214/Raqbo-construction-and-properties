@@ -11,15 +11,19 @@ The website's code lives in `src/`, split into small files. `index.html` and `as
 | `src/index.html` | Page markup and the **RAQBO SETTINGS** block (Supabase URL/key, WhatsApp number). `<!-- @css -->` and `<!-- @js -->` mark where the styles and app are linked |
 | `src/css/NN-name.css` | Styles, one file per section, loaded in number order |
 | `src/js/NN-name.js` | The app, one file per feature, joined in number order (they share one scope, so keep the order) |
-| `build.mjs` | Joins and minifies `src/` into `index.html` + `assets/app.<hash>.css` + `assets/app.<hash>.js` |
+| `src/i18n/ur.js` | Urdu translations, loaded only when Urdu is selected |
+| `src/features/official-auctions-admin.js` | Official-auction administration renderer, loaded when its admin tab is opened |
+| `build.mjs` | Joins and minifies the shared app scope and builds a separate hashed Urdu module |
 
 After any change:
 ```
 npm install        (first time only)
 npm run bundle     (or: npm run bundle:dev for unminified output, easier to debug)
+npm test           (isolated PostgreSQL authorization and contact-guard tests)
 git add -A && git commit -m "…" && git push
 ```
 The file names change with the content, so visitors get the new version immediately while unchanged files stay cached for 30 days.
+The main app still shares one scope and is not yet fully modular. Urdu and official-auction administration are fetched on demand; if a module cannot load, an error allows a retry. Previously selected Urdu is loaded on startup.
 
 ## Folder contents
 | Folder / file | What it is |
@@ -73,6 +77,12 @@ Everything runs on **Supabase** (free plan): sign-in, Postgres database with row
 **Property offers and chat:** Apply `supabase/update_35_listing_offers.sql` after the preceding updates on an existing Supabase project before deploying the rebuilt website. For new projects, the update is included at the end of `schema.sql` and `FRESH_INSTALL.sql`; apply updates 32–34 separately after `schema.sql` if needed. `FRESH_INSTALL.sql` deletes existing data and is for a fresh installation only. Published normal sale and rental listings accept offers; auctions use their separate bidding workflow. Sellers see received offers highest first, and participants can use the existing listing conversation for public offers. Investor-only opportunities remain coordinated by RAQBO. An accepted offer is conditional, not a completed sale or rental; payment and agreements are not automated by this feature.
 
 **Listing moderation:** Apply `supabase/update_36_listing_moderation.sql` after all previous updates before deploying the rebuilt website. It is also appended to the installation scripts. The Possible duplicates section combines detail, title and cover-photo matches with open suspicious-activity and duplicate reports. The live dashboard loads up to 500 recent listings and 500 reports; the photo scan checks up to 400 listings. Matches are suggestions, not proof; staff must review them before deleting. Listing staff can edit the listed text, location, size and price, send an in-app note to an advertiser, or permanently delete a listing after confirmation. Deletion can cascade to related records. If media cleanup fails after a deletion, the dashboard reports the failure and storage must be cleaned up separately. The database enforces the `listings` permission for listing moderation and limits access to non-public listings and advertiser profiles. Review staff permissions before applying the migration: admins without that permission will no longer have those accesses.
+
+**Chat scope:** Apply `supabase/update_37_chat_scope.sql` after updates 32 and 36. It rejects conversations with multiple unrelated topics and restricts block-status checks to the conversation's participants and admins (who already have access to all chats). It is included in `FRESH_INSTALL.sql`; for `schema.sql` installations, apply updates 32–34 and then 37 separately. The browser contact guard is advisory only: it can be bypassed and its local logs are not centrally available to administrators. It is not a database security boundary or a guarantee against off-platform contact.
+
+**Contact filter:** Apply `supabase/update_38_chat_contact_guard.sql` after update 37, and `supabase/update_40_public_contact_guard.sql` after update 39. The database rejects common phone, CNIC, email, link and social-contact patterns in member-to-member chat and newly written listing titles/descriptions, reviews and wanted-post details, including Arabic and Persian numerals. Staff messages and RAQBO support chats are exempt at the database so members can provide information to RAQBO; the existing browser-side checks still apply to non-admin users, including support chats. The filter can miss obfuscations, reject legitimate text, and does not cover every field or attachment. Existing unchanged text is not rechecked when editing other fields. Rejected content is not saved or centrally logged. Both updates are included in `FRESH_INSTALL.sql`; apply them separately in order for `schema.sql` installations.
+
+**Sensitive-data permissions:** Apply `supabase/update_39_sensitive_data_scope.sql` after update 38. Rental management requires `services`, screening and identity documents require `verification`, commercial administration requires `listings`, and tax administration requires `settings`. Legal administration is limited to full admins; clients and assigned lawyers retain access to their own appointments. Lawyer licence/CNIC documents and internal notes are no longer selectable from the public lawyer directory; the private profile RPC remains available to the lawyer. Review existing staff permissions before deployment. The update is included in `FRESH_INSTALL.sql`; apply it separately after updates 32–34 and 37–38 for `schema.sql` installations.
 
 **About escrow payments:** money is paid into RAQBO's own account (details in `content.js`) and the admin confirms each payment and payout in the marketplace Admin tab. This works today without any payment gateway. Automatic card/wallet payments need a merchant account (JazzCash, Easypaisa or a bank gateway) and can be connected later. The website talks to Supabase directly — there is no separate server. Your project URL and public (anon) key are already inside `website/index.html`.
 Never put the Supabase **service_role** key in the website.

@@ -248,9 +248,9 @@
     const backup = rv.list.slice(); const now = Date.now();
     const temp = { id: mine ? mine.id : 'tmp-' + now, userId: me, name: (db.session && db.session.name) || 'You', rating, comment, createdAt: mine ? mine.createdAt : now, updatedAt: now, fresh: true };
     rv.list = mine ? rv.list.map((r) => (r.id === mine.id ? temp : r)) : [temp, ...rv.list]; rv.draft = null; updateRatingFromList(); renderReviews();
-    toast(mine ? 'Your review was updated.' : 'Thanks! Your review is live.');
     try {
       await backend.saveReview(l.id, rating, comment, mine ? mine.id : null);
+      toast(mine ? 'Your review was updated.' : 'Thanks! Your review is live.');
       await fetchReviews(false); renderGridSoon();
     } catch (err) { rv.list = backup; rv.draft = { open: true, rating, comment }; updateRatingFromList(); renderReviews(); const f2 = $('[data-rv-form]', pp.el); if (f2) showErrors(f2, [['comment', err.message]]); else toast(err.message); }
     return true;

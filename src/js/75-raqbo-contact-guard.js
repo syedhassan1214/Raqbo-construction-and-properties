@@ -1,12 +1,7 @@
   /* =====================================================================
      RAQBO contact guard
-     Two people must never be able to step off RAQBO and finish a deal in
-     private. Anything that would let them do that — a CNIC, a phone number,
-     an email address, a link, a messaging app or a social handle — is
-     stopped before it is saved, wherever it is typed: chat, enquiries,
-     listings, reviews and wanted posts.
-
-     The admin sees every attempt, so a member who keeps trying is visible.
+     Best-effort browser warnings for contact details in selected forms.
+     This can be bypassed and the logs remain in the current browser.
      ===================================================================== */
   const RQG_KEY = 'raqbo.guard.log';
   const RQG_MAX = 300;
@@ -88,7 +83,7 @@
     rqgWrap(backend, 'createEnquiry', 'Enquiry', (a, w) => rqgCheckObject(w, a[0]));
     rqgWrap(backend, 'submitListing', 'New listing', (a, w) => rqgCheckObject(w, a[0]));
     rqgWrap(backend, 'updateListing', 'Listing edit', (a, w) => rqgCheckObject(w, a[1] || a[0]));
-    rqgWrap(backend, 'saveReview', 'Review', (a, w) => rqgCheckObject(w, a[0]));
+    rqgWrap(backend, 'saveReview', 'Review', (a, w) => rqgCheck(w, a[2]));
   } catch { /* ignore */ }
 
   /* ---------- tell people before they hit send ---------- */

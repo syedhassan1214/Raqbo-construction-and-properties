@@ -201,8 +201,8 @@
             <div class="rqa-g-hits">${(x.hits || []).map((h) => `<span class="rqa-tag no">${esc(h)}</span>`).join('')}</div>
             <p class="rqa-g-s">${esc(x.sample)}</p></div>`).join('')}</div>
          <div class="rqa-l-act"><button type="button" class="button button-outline" data-rqa="guard-clear">Clear the log</button></div>`
-      : '<div class="admin-empty">Nobody has tried to share a phone number, a CNIC or a link. The guard is on.</div>';
-    return rqaShell('Contact guard', 'Every attempt to pass a phone number, CNIC, email, link or social handle between members — stopped before it was saved.', body);
+      : '<div class="admin-empty">No attempts recorded in this browser.</div>';
+    return rqaShell('Contact guard', 'Best-effort checks in this browser only. This log does not include other users or devices and the checks can be bypassed.', body);
   };
 
   /* ---------------- tabs ---------------- */
@@ -211,7 +211,7 @@
     Object.assign(AX_HINT, {
       'rq-members': 'Who listed what, and how much of it',
       'rq-docs': 'Papers each member holds, and what is missing',
-      'rq-guard': 'Attempts to take a deal off RAQBO'
+      'rq-guard': 'Contact attempts recorded in this browser'
     });
   } catch { /* icons are cosmetic */ }
 

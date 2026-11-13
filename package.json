@@ -4,9 +4,11 @@
   "type": "module",
   "scripts": {
     "bundle": "node build.mjs",
-    "bundle:dev": "node build.mjs --dev"
+    "bundle:dev": "node build.mjs --dev",
+    "test": "node --test"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.16",
     "esbuild": "0.28.2"
   }
 }
