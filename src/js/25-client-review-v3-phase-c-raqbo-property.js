@@ -54,12 +54,16 @@
     if (!vrQrP) vrQrP = new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
     // The browser checks the file against this fingerprint and refuses to run
     // it if even one byte differs, so a tampered copy cannot reach a visitor.
-    s.integrity = 'sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU'; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer'; s.onload = () => (window.QRCode ? res(window.QRCode) : rej(new Error('qr'))); s.onerror = () => { vrQrP = null; rej(new Error('qr')); }; document.head.append(s); setTimeout(() => rej(new Error('qr')), 6000); });
+    s.integrity = 'sha384-3zSEDfvllQohrq0PHL1fOXJuC/jSOO34H46t6UQfobFOmxE5BpjjaIJY5F2/bMnU'; s.crossOrigin = 'anonymous'; s.referrerPolicy = 'no-referrer';
+    const fail = () => { clearTimeout(timer); s.remove(); vrQrP = null; rej(new Error('QR code unavailable')); };
+    const timer = setTimeout(fail, 6000);
+    s.onload = () => { if (!window.QRCode) { fail(); return; } clearTimeout(timer); res(window.QRCode); };
+    s.onerror = fail; document.head.append(s); });
     return vrQrP;
   }
-  async function vrQrInto(box, text) {
-    try { const Q = await vrQrLib(); const tmp = document.createElement('div'); new Q(tmp, { text, width: 132, height: 132, correctLevel: Q.CorrectLevel.M }); await new Promise((r) => setTimeout(r, 30)); const c = tmp.querySelector('canvas'); const src = c ? c.toDataURL('image/png') : (tmp.querySelector('img') || {}).src; if (src) { box.innerHTML = `<img src="${src}" width="132" height="132" alt="QR code to check this report on raqbo.com">`; box.classList.add('on'); } }
-    catch { box.innerHTML = `<small>Scan unavailable — check at<br><b>${esc(text.replace(/^https?:\/\//, ''))}</b></small>`; }
+  async function vrQrInto(box, text, label = 'QR code to check this report') {
+    try { const Q = await vrQrLib(); const tmp = document.createElement('div'); new Q(tmp, { text, width: 132, height: 132, correctLevel: Q.CorrectLevel.M }); await new Promise((r) => setTimeout(r, 30)); const c = tmp.querySelector('canvas'); const src = c ? c.toDataURL('image/png') : (tmp.querySelector('img') || {}).src; if (!src) throw new Error('QR image unavailable'); box.innerHTML = `<img src="${esc(src)}" width="132" height="132" alt="${esc(label)}">`; box.classList.add('on'); return true; }
+    catch { box.innerHTML = `<small>QR unavailable — open<br><b>${esc(text.replace(/^https?:\/\//, ''))}</b></small>`; return false; }
   }
 
   // ---------- The report itself ----------
@@ -107,7 +111,8 @@
   // ---------- Passport additions (called by openPassport in core.js) ----------
   async function vrPassportExtend(card, l) {
     const anchor = $('.pass-legal', card); if (!anchor) return;
-    let p = null; try { p = await VR.passport(l.id); } catch { return; } if (!p || !document.body.contains(anchor)) return;
+    let p = null; try { p = await VR.passport(l.id); } catch (err) { if (document.body.contains(anchor)) anchor.insertAdjacentHTML('beforebegin', `<p class="pass-note">Additional passport history could not be loaded: ${esc(err.message || 'please try again')}.</p>`); return; } if (!document.body.contains(anchor)) return;
+    if (!p) { anchor.insertAdjacentHTML('beforebegin', '<p class="pass-note">Additional passport history is unavailable.</p>'); return; }
     const FIELD = { city: 'City', area: 'Area / society', size: 'Size', type: 'Property type' };
     const sec = document.createElement('div'); sec.className = 'vr-pass'; let n = 7; const N = () => (n += 1) + '. ';
     sec.innerHTML = `

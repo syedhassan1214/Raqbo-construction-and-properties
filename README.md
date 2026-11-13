@@ -67,6 +67,7 @@ The main app still shares one scope and is not yet fully modular. Urdu and offic
 - **Share a property**: copy link, WhatsApp, Facebook, Email, SMS — new visitors register and then land on that property
 - **List a property** with photos and video; stays hidden until an admin approves it; owners can edit/delete their listings
 - **Services** (verification, legal, documents, registry): a short form, then WhatsApp opens with the details filled in
+- **Property Passport**: public published listings include a QR link to the current property page (sign-in may be required); the QR is not proof of title or verification. Buyers can send an in-app verification enquiry from an unverified passport and track it in My RAQBO → Service requests; staff handle it under Service enquiries. Verification depends on the owner's cooperation and is not automatic. QR generation uses the existing integrity-checked CDN library; retry if it cannot load.
 - **About us**: founder message, completed and ongoing project slideshows, upcoming projects
 - **Admin panel** (`yourwebsite/#admin`): approve/reject listings, handle requests and reports, remove reviews
 - Spam limits, report a property, privacy & terms pages, official WhatsApp/Instagram/Facebook/Pinterest/YouTube links

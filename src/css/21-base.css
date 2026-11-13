@@ -33,6 +33,7 @@
 .pass-head h2{margin:8px 0 4px;color:#fff;font:800 22px/1.2 var(--font-display)}.pass-head p{margin:0;color:#b9b1a2;font-size:13px}
 .pass-seal{flex:0 0 auto;display:grid;justify-items:center;gap:3px;min-width:132px;padding:12px;border:1px dashed rgba(255,255,255,.25);border-radius:14px;text-align:center;color:#9d968a}
 .pass-seal.on{border-color:rgba(227,173,69,.6);color:var(--gold-1)}.pass-seal b{color:#fff;font-size:13.5px}.pass-seal small{font-size:11px;color:#b9b1a2}
+.pass-head-side{display:grid;justify-items:center;gap:8px;max-width:180px;text-align:center}.pass-head-side>small{font-size:11px;color:#b9b1a2}.pass-head-side .vr-qr{margin:0}
 .pass section{padding:14px 16px;border:1px solid var(--line);border-radius:14px;background:#fff;break-inside:avoid}
 .pass h3{margin:0 0 8px;font:800 14px/1.2 var(--font-display);color:#8a5a00;letter-spacing:.02em}
 .pass dl{margin:0;display:grid}.pass-row{display:grid;grid-template-columns:200px 1fr;gap:12px;padding:7px 0;border-top:1px solid #f3eee4}.pass-row:first-child{border-top:0}

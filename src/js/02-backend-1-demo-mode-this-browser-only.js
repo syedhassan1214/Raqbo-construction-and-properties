@@ -104,7 +104,7 @@
       await media.remove([...l.photos, ...l.videos].filter((m) => !m.src).map((m) => m.id));
       db.listings.splice(i, 1); db.favorites = db.favorites.filter((x) => x !== id); this.save('listings'); this.save('favorites');
     },
-    async createEnquiry(e) { const ref = e.ref || refCode('ENQ'); db.enquiries.unshift({ ...e, id: uid('e'), ref, status: 'new', createdAt: Date.now() }); this.save('enquiries'); return ref; },
+    async createEnquiry(e) { const ref = e.ref || refCode('ENQ'); db.enquiries.unshift({ ...e, id: uid('e'), ref, status: 'new', createdAt: Date.now() }); if (!store.set('enquiries', db.enquiries)) { db.enquiries.shift(); throw new Error('Could not save your request in this browser.'); } return ref; },
     async createReport(r) { const ref = refCode('RPT'); db.reports.unshift({ ...r, id: uid('r'), ref, status: 'open', createdAt: Date.now() }); this.save('reports'); return ref; },
     async adminSignIn() {},
     async adminLoad() {},

@@ -126,32 +126,85 @@
   async function openPassport(id) {
     const l = byId(id); if (!l) return;
     const card = openModal('<div class="gw-loading">Preparing the Property Passport…</div>', { wide: true, label: 'Property Passport' }); card.classList.add('pass-card');
-    let t = null; try { t = await PF.trust(id); } catch { t = null; }
+    let t = null; let trustError = false; try { t = await PF.trust(id); } catch { trustError = true; }
+    if (!document.body.contains(card)) return;
     const v = t && t.verification; const lvl = v && v.status === 'verified' ? (v.level === 'legal' ? 'Enhanced Property Verification' : 'Documents Reviewed') : null;
+    const publicLink = l.status === 'published' && isPublicListing(l) ? `${location.origin}/#property/${encodeURIComponent(l.id)}` : '';
     const row = (k, val, ok) => `<div class="pass-row"><dt>${esc(k)}</dt><dd class="${ok === true ? 'ok' : ok === false ? 'warn' : ''}">${val}</dd></div>`;
     const docsRow = ['Registry / sale deed', 'Fard / record of rights', 'Mutation (intiqal)', 'Allotment / transfer letter', 'Owner CNIC', 'Approved building plan'];
     const checked = new Set(((v && v.checks) || []).filter((c) => c.result === 'ok').map((c) => c.key));
     const html = `<div class="pass" id="pass-print">
       <div class="pass-head"><div><div class="eyebrow"><span></span> RAQBO PROPERTY PASSPORT</div><h2>${esc(l.title)}</h2><p>${esc(l.ref || '')} · ${esc(l.area)}, ${esc(l.city)} · issued ${esc(fmtDay(Date.now()))}</p></div>
-        <div class="pass-seal ${lvl ? 'on' : ''}">${DI(DIC.shield, 26)}<b>${lvl ? 'RAQBO Verified' : 'Not verified'}</b><small>${lvl ? esc(lvl) + (v.checked_at ? ' · ' + esc(fmtDay(v.checked_at)) : '') : 'Documents not checked'}</small></div></div>
+        <div class="pass-head-side"><div class="pass-seal ${lvl ? 'on' : ''}">${DI(DIC.shield, 26)}<b>${trustError ? 'Status unavailable' : lvl ? 'RAQBO Verified' : 'Not verified'}</b><small>${trustError ? 'Could not load verification status' : lvl ? esc(lvl) + (v.checked_at ? ' · ' + esc(fmtDay(v.checked_at)) : '') : 'Documents not checked'}</small></div>${publicLink ? '<div class="vr-qr" data-pass-qr><small>Preparing QR code…</small></div><small>Scan to open the current property page. Sign-in may be required.</small>' : ''}</div></div>
       <section><h3>1. Identification</h3><dl>${row('Reference', esc(l.ref || '—'))}${row('Property type', esc(l.type === 'Plot' ? 'Plot / land' : l.type))}${row('Offered for', l.purpose === 'rent' ? 'Rent' : l.saleMode === 'urgent' ? 'Sale — QuickSell' : l.saleMode === 'auction' ? 'Sale — Auction' : 'Sale')}${row('Price', esc(fmtPrice(l.price)) + (l.purpose === 'rent' ? ' / month' : ''))}${row('Advertised by', esc(l.role === 'Owner' ? 'Owner (direct)' : l.role) + (t && t.owner_id_verified ? ' · <span class="id-chip">Identity Verified</span>' : ''))}${l.raqboRole ? row('RAQBO\'s role', esc(RAQBO_ROLES[l.raqboRole][0])) : ''}</dl></section>
       <section><h3>2. Location</h3><dl>${row('Area / society', esc(l.area))}${row('City', esc(l.city))}${row('Map pin', l.lat != null ? `${(+l.lat).toFixed(5)}, ${(+l.lng).toFixed(5)} · <a href="https://www.openstreetmap.org/?mlat=${esc(l.lat)}&mlon=${esc(l.lng)}#map=17/${esc(l.lat)}/${esc(l.lng)}" target="_blank" rel="noopener">open map</a>` : 'Not pinned by the advertiser', l.lat != null ? true : null)}</dl></section>
       <section><h3>3. Dimensions</h3><dl>${row('Plot / land size', esc(fmtSize(l)))}${row('Covered area', l.coveredArea ? esc(l.coveredArea.toLocaleString('en-US') + ' ' + (l.coveredUnit || 'sq ft')) : 'Not provided')}${l.type !== 'Plot' ? row('Bedrooms / bathrooms', `${l.beds} / ${l.baths}`) : ''}${row('Price per marla', esc(typeof ppm === 'function' && ppm(l) ? fmtPrice(ppm(l)) : '—'))}</dl></section>
       <section><h3>4. Plans, possession and utilities</h3><dl>${row('Approved building plan', esc(PLAN[l.approvedPlan] || 'Not provided'), l.approvedPlan === 'yes' ? true : l.approvedPlan === 'no' ? false : null)}${row('Possession', esc(POSSESSION[l.possession] || 'Not provided'), l.possession === 'vacant' ? true : null)}${row('Utilities', (l.utilities || []).length ? l.utilities.map((u) => esc(UTIL[u] || u)).join(', ') : 'Not provided')}</dl></section>
-      <section><h3>5. Encumbrance review</h3><dl>${row('Declared by the owner', esc(ENCUMB[l.encumbrance] || 'Not provided'), l.encumbrance === 'none' ? true : l.encumbrance && l.encumbrance !== 'unknown' ? false : null)}${row('Checked by RAQBO', checked.has('encumbrance') ? 'Mortgage, litigation and stay-order search completed' : 'Not checked', checked.has('encumbrance') ? true : null)}</dl></section>
+      <section><h3>5. Encumbrance review</h3><dl>${row('Declared by the owner', esc(ENCUMB[l.encumbrance] || 'Not provided'), l.encumbrance === 'none' ? true : l.encumbrance && l.encumbrance !== 'unknown' ? false : null)}${row('Checked by RAQBO', trustError ? 'Status unavailable' : checked.has('encumbrance') ? 'Mortgage, litigation and stay-order search completed' : 'Not checked', checked.has('encumbrance') ? true : null)}</dl></section>
       <section><h3>6. Ownership documents <small class="pass-conf">confidential — not shown to buyers</small></h3><ul class="pass-docs">${docsRow.map((d) => `<li class="${lvl ? 'seen' : ''}">${DI(lvl ? DIC.check : DIC.doc, 14)} ${esc(d)}</li>`).join('')}</ul><p class="pass-note">${lvl ? 'RAQBO examined the ownership documents supplied by the owner (see section 7).' : 'Ask the seller for these documents before paying anything. RAQBO can check them for you.'}</p></section>
       <section><h3>7. Verification history</h3>${v && v.status === 'verified' ? `<ul class="pass-checks">${(v.checks || []).map((c) => `<li class="${c.result === 'ok' ? 'ok' : 'na'}">${DI(c.result === 'ok' ? DIC.check : DIC.info, 14)} ${esc(c.label)}${c.result === 'ok' ? '' : ' — not checked'}</li>`).join('')}</ul>` : ''}
-        ${(t && t.history && t.history.length) ? `<ol class="pass-hist">${t.history.map((h) => `<li><b>${esc(fmtDay(h.at))}</b> ${h.event === 'verified' ? esc(h.level === 'legal' ? 'Enhanced Property Verification passed' : 'Documents Reviewed — passed') : 'Badge removed — property details changed'}</li>`).join('')}</ol>` : '<p class="pass-note">No verification yet.</p>'}</section>
+        ${(t && t.history && t.history.length) ? `<ol class="pass-hist">${t.history.map((h) => `<li><b>${esc(fmtDay(h.at))}</b> ${h.event === 'verified' ? esc(h.level === 'legal' ? 'Enhanced Property Verification passed' : 'Documents Reviewed — passed') : 'Badge removed — property details changed'}</li>`).join('')}</ol>` : `<p class="pass-note">${trustError ? 'Verification history could not be loaded. Please try again.' : 'No verification yet.'}</p>`}</section>
       <p class="pass-legal">The Property Passport combines what the advertiser declared with what RAQBO checked, and shows the date of each check. A RAQBO badge is not a government guarantee of ownership or legal title. Always obtain independent legal advice and check the official records before buying.</p>
     </div>
-    <div class="button-row pass-actions"><button type="button" class="button button-primary" data-core="passport-print">${DI(GI.print, 16)} Download / print</button>${!lvl && db.session && l.ownerId === db.session.userId ? `<button type="button" class="button button-outline" data-vf="apply" data-id="${esc(l.id)}">Get RAQBO Verified</button>` : ''}${!lvl && !(db.session && l.ownerId === db.session.userId) ? '<button type="button" class="button button-outline" data-service="verification">Ask RAQBO to verify it</button>' : ''}</div>`;
-    setBody(card, html); vrPassportExtend(card, l);
+    <div class="button-row pass-actions"><button type="button" class="button button-primary" data-core="passport-print" disabled>${DI(GI.print, 16)} Download / print</button>${publicLink ? `<button type="button" class="button button-outline" data-core="passport-qr-retry" data-id="${esc(l.id)}" hidden>Retry QR code</button>` : ''}${!trustError && !lvl && db.session && l.ownerId === db.session.userId ? `<button type="button" class="button button-outline" data-vf="apply" data-id="${esc(l.id)}">Get RAQBO Verified</button>` : ''}${!trustError && !lvl && publicLink && !(db.session && l.ownerId === db.session.userId) ? `<button type="button" class="button button-outline" data-core="passport-request" data-id="${esc(l.id)}">Ask RAQBO to verify it</button>` : ''}</div>`;
+    setBody(card, html);
+    const print = $('[data-core="passport-print"]', card);
+    await vrPassportExtend(card, l);
+    if (!document.body.contains(card)) return;
+    if (publicLink) await passportQr(card, publicLink);
+    else print.disabled = false;
   }
-  function printPassport() {
-    const el = $('#pass-print'); if (!el) return; const css = [...document.querySelectorAll('style')].map((s) => s.textContent).join('\n');
-    const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.append(f); const d = f.contentDocument;
-    d.open(); const ST = ['<sty', 'le>'].join(''); const ET = ['</sty', 'le></he', 'ad>'].join(''); d.write(`<!doctype html><html><head><meta charset="utf-8"><title>RAQBO Property Passport</title>${ST}${css}\nbody{background:#fff!important;padding:18mm}.pass{max-width:none}${ET}<body>${el.outerHTML}</body></html>`); d.close();
-    setTimeout(() => { try { f.contentWindow.print(); } catch { /* ignore */ } setTimeout(() => f.remove(), 3000); }, 300);
+  async function passportQr(card, url) {
+    const box = $('[data-pass-qr]', card); const retry = $('[data-core="passport-qr-retry"]', card); const print = $('[data-core="passport-print"]', card);
+    print.disabled = true; retry.hidden = true; box.innerHTML = '<small>Preparing QR code…</small>';
+    const ok = await vrQrInto(box, url, 'QR code to open this property');
+    if (!document.body.contains(card)) return;
+    print.disabled = !ok; retry.hidden = ok;
+  }
+  async function printPassport(button) {
+    const el = $('#pass-print'); if (!el) return;
+    const done = busy(button, 'Preparing…'); const f = document.createElement('iframe');
+    f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.append(f);
+    try {
+      const d = f.contentDocument; d.open(); d.write('<!doctype html><html><head><meta charset="utf-8"><title>RAQBO Property Passport</title></head><body></body></html>'); d.close();
+      for (const source of document.querySelectorAll('link[rel="stylesheet"], style')) {
+        if (source.tagName === 'STYLE') { d.head.append(source.cloneNode(true)); continue; }
+        if (new URL(source.href).origin !== location.origin) continue;
+        const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 10000);
+        let response; try { response = await fetch(source.href, { signal: controller.signal }); } finally { clearTimeout(timer); }
+        if (!response.ok) throw new Error('Could not load passport styles.');
+        const style = d.createElement('style'); style.textContent = await response.text(); d.head.append(style);
+      }
+      const extra = d.createElement('style'); extra.textContent = 'body{background:#fff!important;padding:18mm}.pass{max-width:none}'; d.head.append(extra);
+      d.body.append(el.cloneNode(true));
+      await Promise.all([...d.images].map((img) => img.decode()));
+      f.contentWindow.focus(); f.contentWindow.print(); setTimeout(() => f.remove(), 3000);
+    } catch (err) { f.remove(); toast('Could not prepare the passport for printing: ' + err.message); }
+    finally { done(); }
+  }
+  function requestPassportVerification(id) {
+    closeModal();
+    requireSignIn(() => {
+      const l = byId(id);
+      if (!l || l.status !== 'published' || !isPublicListing(l)) { toast('This property is no longer available.'); return; }
+      const card = openModal(`<h2>Ask RAQBO to verify this property</h2><p class="modal-lead">${esc(l.title)} · ${esc(l.ref || l.id)}</p><p>RAQBO will review your request. Verification requires the owner's cooperation; fees and the scope of any checks must be agreed before work starts.</p>
+        <form data-pass-request="${esc(l.id)}"><label>Name<input name="name" maxlength="120" required value="${esc(db.session.name || '')}"></label><label>Phone<input name="phone" maxlength="20" required value="${esc(db.session.phone || '')}"></label><label>Message (optional)<textarea name="message" maxlength="1000" rows="3"></textarea></label><div class="form-error" role="alert" hidden></div><button type="submit" class="button button-primary">Send request to RAQBO</button></form>`, { label: 'Request property verification' });
+      $('form', card).addEventListener('submit', async (e) => {
+        e.preventDefault(); const f = e.currentTarget; const name = f.elements.name.value.trim(); const phone = normPhone(f.elements.phone.value); const errs = [];
+        if (!name) errs.push(['name', 'Enter your name.']);
+        if (!phone) errs.push(['phone', PK_PHONE_HINT]);
+        if (showErrors(f, errs)) return;
+        const current = byId(id);
+        if (!current || current.status !== 'published' || !isPublicListing(current)) { showErrors(f, [['', 'This property is no longer available.']]); return; }
+        const done = busy($('[type=submit]', f), 'Sending…');
+        try {
+          const ref = await backend.createEnquiry({ service: 'verification', name, phone, email: db.session.email || '', city: current.city || '', property: current.ref || current.id, message: 'Please contact me in the app about verification for this property.' + (f.elements.message.value.trim() ? '\n' + f.elements.message.value.trim() : ''), via: null, userId: db.session.userId });
+          refreshAdmin();
+          setBody(card, successHTML('Request sent to RAQBO', '<p>Track this request in My RAQBO → Service requests. This does not mean the property has been verified.</p>', ref, '<button type="button" class="button button-outline" data-my="services" data-close>View service requests</button>'));
+        } catch (err) { showErrors(f, [['', err.message || 'Could not send the request. Please try again.']]); }
+        finally { done(); }
+      });
+    });
   }
 
   // ---------- Home rails (Verified, RAQBO Direct; later phases add more) ----------
@@ -347,7 +400,9 @@
     if (e.target.closest('.my-overlay [data-open]') && !e.target.closest('[data-core],[data-vf],[data-gw]')) { const id = e.target.closest('[data-open]').dataset.open; closeMy(); openDetails(id); return; }
     const c = e.target.closest('[data-core]'); if (!c) return; const a = c.dataset.core;
     if (a === 'passport') { if (pf.my.open) closeMy(); if (pp.el && !pp.el.hidden) closeDetails(); openPassport(c.dataset.id); }
-    else if (a === 'passport-print') printPassport();
+    else if (a === 'passport-print') printPassport(c);
+    else if (a === 'passport-qr-retry') { const l = byId(c.dataset.id); if (l && l.status === 'published' && isPublicListing(l)) passportQr(c.closest('.modal-card'), `${location.origin}/#property/${encodeURIComponent(l.id)}`); else toast('This property is no longer available.'); }
+    else if (a === 'passport-request') requestPassportVerification(c.dataset.id);
     else if (a === 'edit') { closeMy(); openListingForm(c.dataset.id); }
     else if (a === 'rail') { if (c.dataset.to === 'urgent') { openUrgentPage(); return; } if (c.dataset.to === 'auctions') { openAuctions(); return; } if (c.dataset.to === 'verified') { fx.vmode = 'verified'; renderGrid(); } if (c.dataset.to === 'direct') { fx.kind = 'direct'; renderGrid(); } scrollToResults(); }
     else if (a === 'role') openRoleForm(c.dataset.id);
