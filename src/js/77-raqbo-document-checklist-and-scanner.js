@@ -21,6 +21,15 @@
   ];
   const RQD = { pending: null, scans: {} };
   const docLabel = (k) => (RQ_DOCS.find((d) => d[0] === k) || [k, k])[1];
+  const docIc = (d, s = 16) => `<svg aria-hidden="true" width="${s}" height="${s}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
+  const DOC_IC = {
+    folder: docIc('<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>', 20),
+    cam: docIc('<path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.6"></circle>'),
+    lib: docIc('<rect x="3" y="5" width="18" height="14" rx="2"></rect><circle cx="8.5" cy="10" r="1.6"></circle><path d="M21 16l-5-5-5.5 5.5L8 14l-5 5"></path>'),
+    pdf: docIc('<path d="M4 19V5a1 1 0 0 1 1-1h11l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path><path d="M8 13h8M8 16h5"></path>', 15),
+    lock: docIc('<rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path>', 14),
+    x: docIc('<path d="M6 6l12 12M18 6L6 18"></path>', 13)
+  };
 
   /* ---------------- the scanner ---------------- */
   // Grey → take the shadow out by dividing by a blurred copy of itself →
@@ -116,17 +125,27 @@
     wrap.className = 'doc-block';
     wrap.innerHTML = `
       <div class="doc-head">
-        <b>Which papers do you have?</b>
-        <span>Tick what you hold today. Nothing is published — only RAQBO sees it, so we can tell you exactly what is missing and help you get it.</span>
+        <div class="doc-head-row">
+          <span class="doc-head-ic">${DOC_IC.folder}</span>
+          <span class="doc-head-txt"><b>Which papers do you have?</b><span>Tick what you hold today. Only RAQBO sees this — we use it to tell you exactly what is missing and help you get it.</span></span>
+        </div>
+        <div class="doc-progress"><div class="doc-bar"><i style="width:0%"></i></div><span class="doc-count">0 of ${RQ_DOCS.length}</span></div>
       </div>
       <div class="doc-list">${RQ_DOCS.map(([k, t, s]) => `
-        <label class="doc-row">
-          <input type="checkbox" name="rqdoc" value="${esc(k)}">
-          <span class="doc-text"><b>${esc(t)}</b>${s ? `<i>${esc(s)}</i>` : ''}</span>
-          <button type="button" class="doc-scan" data-rqscan="${esc(k)}" title="Scan with the camera" aria-label="Scan ${esc(t)} with the camera">${DI('<path d="M3 8a2 2 0 0 1 2-2h2.5l1.5-2h6l1.5 2H19a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><circle cx="12" cy="13" r="3.6"></circle>', 16)}</button>
-        </label>`).join('')}</div>
-      <p class="doc-foot">${DI('<rect x="4" y="10" width="16" height="10" rx="2"></rect><path d="M8 10V7a4 4 0 0 1 8 0v3"></path>', 14)}<span>Papers you scan here are cleaned up and kept privately for RAQBO's review. They are never shown on the listing.</span></p>
-      <input type="file" class="doc-file" accept="image/*,application/pdf" capture="environment" hidden>`;
+        <div class="doc-item" data-doc="${esc(k)}">
+          <label class="doc-row">
+            <input type="checkbox" name="rqdoc" value="${esc(k)}">
+            <span class="doc-text"><b>${esc(t)}</b>${s ? `<i>${esc(s)}</i>` : ''}</span>
+          </label>
+          <div class="doc-actions">
+            <span class="doc-act-label">Attach a copy</span>
+            <button type="button" class="doc-act" data-rqscan="${esc(k)}" data-src="cam">${DOC_IC.cam}<span>Camera</span></button>
+            <button type="button" class="doc-act" data-rqscan="${esc(k)}" data-src="lib">${DOC_IC.lib}<span>Gallery or PDF</span></button>
+          </div>
+        </div>`).join('')}</div>
+      <p class="doc-foot">${DOC_IC.lock}<span>A photo is tidied up automatically — the shadow comes out and the paper turns clean white. Copies stay private for RAQBO's review and never appear on the listing.</span></p>
+      <input type="file" class="doc-f-cam" accept="image/*" capture="environment" hidden>
+      <input type="file" class="doc-f-lib" accept="image/*,application/pdf" hidden>`;
     return wrap;
   }
 
@@ -166,45 +185,63 @@
     };
   } catch { /* ignore */ }
 
-  /* ---------------- camera button behaviour ---------------- */
+  /* ---------------- ticking a paper opens its two ways in ---------------- */
+  function docSync(block) {
+    if (!block) return;
+    const items = $$('.doc-item', block);
+    let n = 0;
+    items.forEach((it) => {
+      const on = !!$('input[name="rqdoc"]', it).checked;
+      it.classList.toggle('on', on);
+      if (on) n++;
+    });
+    const bar = $('.doc-bar i', block);
+    const count = $('.doc-count', block);
+    if (bar) bar.style.width = Math.round((n / items.length) * 100) + '%';
+    if (count) count.textContent = `${n} of ${items.length}`;
+    block.classList.toggle('some', n > 0);
+  }
+  document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!t || t.name !== 'rqdoc') return;
+    docSync(t.closest('.doc-block'));
+  });
+
+  /* ---------------- camera, gallery and PDF ---------------- */
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-rqscan]');
     if (!b) return;
     e.preventDefault(); e.stopPropagation();
     const block = b.closest('.doc-block');
-    const input = block && $('.doc-file', block);
+    const input = block && $(b.dataset.src === 'cam' ? '.doc-f-cam' : '.doc-f-lib', block);
     if (!input) return;
+    const item = b.closest('.doc-item');
     input.onchange = async () => {
       const file = input.files && input.files[0];
       input.value = '';
       if (!file) return;
-      const row = b.closest('.doc-row');
-      b.classList.add('busy');
+      item.classList.add('busy');
       try {
         const out = await rqScanFile(file);
         RQD.scans[b.dataset.rqscan] = out.pdf ? { pdf: true, name: out.name } : { dataUrl: out.dataUrl };
-        const tick = row && $('input[name="rqdoc"]', row);
-        if (tick) tick.checked = true;
-        let prev = row && $('.doc-prev', row.parentNode);
-        docPreview(row, b.dataset.rqscan, out);
-        toast(out.pdf ? 'PDF attached for RAQBO’s review.' : 'Scanned and cleaned up.');
+        const tick = $('input[name="rqdoc"]', item);
+        if (tick && !tick.checked) { tick.checked = true; }
+        docPreview(item, b.dataset.rqscan, out);
+        docSync(block);
+        toast(out.pdf ? 'PDF attached for RAQBO’s review.' : 'Photo cleaned up and attached.');
       } catch (err) { toast(err.message); }
-      b.classList.remove('busy');
+      item.classList.remove('busy');
     };
     input.click();
   });
 
-  function docPreview(row, key, out) {
-    if (!row) return;
-    let p = row.nextElementSibling;
-    if (!p || !p.classList.contains('doc-prev')) {
-      p = document.createElement('div');
-      p.className = 'doc-prev';
-      row.parentNode.insertBefore(p, row.nextSibling);
-    }
+  function docPreview(item, key, out) {
+    if (!item) return;
+    let p = $('.doc-prev', item);
+    if (!p) { p = document.createElement('div'); p.className = 'doc-prev'; item.appendChild(p); }
     p.innerHTML = out.pdf
-      ? `<span class="doc-prev-pdf">${DI('<path d="M4 19V5a1 1 0 0 1 1-1h11l4 4v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"></path>', 15)} ${esc(out.name || 'document.pdf')}</span><button type="button" class="doc-prev-x" data-rqdrop="${esc(key)}" aria-label="Remove">${DI('<path d="M6 6l12 12M18 6L6 18"></path>', 13)}</button>`
-      : `<img src="${out.dataUrl}" alt="Scanned ${esc(docLabel(key))}"><span>Scanned · cleaned up</span><button type="button" class="doc-prev-x" data-rqdrop="${esc(key)}" aria-label="Remove">${DI('<path d="M6 6l12 12M18 6L6 18"></path>', 13)}</button>`;
+      ? `<span class="doc-prev-ic">${DOC_IC.pdf}</span><span class="doc-prev-txt"><b>${esc(out.name || 'document.pdf')}</b><i>PDF attached</i></span><button type="button" class="doc-prev-x" data-rqdrop="${esc(key)}" aria-label="Remove">${DOC_IC.x}</button>`
+      : `<img src="${out.dataUrl}" alt="Scanned ${esc(docLabel(key))}"><span class="doc-prev-txt"><b>${esc(docLabel(key))}</b><i>Scanned &middot; shadow removed</i></span><button type="button" class="doc-prev-x" data-rqdrop="${esc(key)}" aria-label="Remove">${DOC_IC.x}</button>`;
   }
   document.addEventListener('click', (e) => {
     const x = e.target.closest('[data-rqdrop]');
