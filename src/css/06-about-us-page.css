@@ -113,7 +113,7 @@
 .footer-social .social-row{display:flex;flex-direction:row;flex-wrap:wrap;gap:10px;margin:0}
 .footer-social .social-row a{height:40px;padding:0 16px;font-size:12.5px;font-weight:700}
 .footer-social .social-row .brand-icon{width:20px;height:20px}
-.wa-float .brand-icon{width:26px;height:26px}
+.rq-fab .brand-icon{width:26px;height:26px}
 @media(max-width:620px){.footer-social{justify-content:center}.footer-social .social-row{justify-content:center}}
 @media(max-width:620px){.footer-social .social-row{flex-wrap:nowrap;gap:12px}.footer-social .social-row a{width:48px;height:48px;padding:0;justify-content:center;font-size:0;gap:0}.footer-social .social-row .brand-icon,.footer-social .social-row svg{width:24px;height:24px}}
 .deal-switch .deal-sell{color:#16120a;background:var(--gold-grad);margin-left:3px}

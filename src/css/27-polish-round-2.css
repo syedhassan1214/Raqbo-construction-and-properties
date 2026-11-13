@@ -10,7 +10,7 @@
   .pl-tabs .pl-tabs-sell span{color:#f6d27c}
   .pl-tabs em{position:absolute;top:9px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;font:800 10px/17px var(--font-brand);font-style:normal;text-align:center}
   body.has-pl-tabs{padding-bottom:84px}
-  body.has-pl-tabs .wa-float{bottom:92px!important;right:14px!important}
+  body.has-pl-tabs .rq-fab{bottom:92px!important;right:14px!important}
   body.has-pl-tabs .pl-top{bottom:150px}
   body.gate-open .pl-tabs,body.admin-open .pl-tabs,body:has(.modal-backdrop) .pl-tabs,body:has(.ax-pal-back:not([hidden])) .pl-tabs{display:none}
 }

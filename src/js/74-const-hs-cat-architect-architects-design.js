@@ -192,6 +192,3 @@
   { const base = v3AdminTabs; v3AdminTabs = function () { const t = base(); const n = hsa.list ? hsa.list.filter((p) => p.status === 'pending').length : ''; const i = t.findIndex((x) => x[0] === 'allchats'); t.splice(i >= 0 ? i + 1 : t.length, 0, ['homeservices', 'Home services', n || ''], ['boundaries', 'Area boundaries', '']); return t; }; }
   if (typeof AX_ICON === 'object') Object.assign(AX_ICON, { homeservices: 'store', boundaries: 'pin' });
   if (typeof AX_HINT === 'object') Object.assign(AX_HINT, { homeservices: 'Architects, contractors, movers… applying to be listed', boundaries: 'Society and area outlines shown on the map' });
-  setDeal('all'); applyBrandIcons(); load();
-})();
-

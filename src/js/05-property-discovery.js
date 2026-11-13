@@ -368,7 +368,7 @@
             <div class="pp-card-price">${fmtPrice(l.price)}${rent ? ' <small>/ month</small>' : ''}</div>
             ${perUnit(l) ? `<div class="pp-card-sub">≈ ${esc(perUnit(l))}</div>` : ''}
             ${!rent && l.price > 0 ? emiHTML(l) : ''}
-            <div class="pp-adv"><span class="pp-avatar">${esc(initials)}</span><div><b>${esc(l.ownerName || 'Advertiser')}</b><small>${esc(roleText)}</small>${gwFoundingChip(l.ownerId)}${coreIdChip(l.ownerId)}</div></div>
+            <button type="button" class="pp-adv" data-adv="${esc(String((!l.sample && l.ownerId) || ''))}" aria-label="See all properties from this advertiser"><span class="pp-avatar">${esc(initials)}</span><div><b>${esc(l.ownerName || 'Advertiser')}</b><small>${esc(roleText)}</small>${gwFoundingChip(l.ownerId)}${coreIdChip(l.ownerId)}</div><span class="pp-adv-go" aria-hidden="true">${DI('<path d="M9 5l7 7-7 7"></path>', 16)}</span></button>
             ${live ? `${dlContactAllowed(l) ? '<button type="button" class="button button-whatsapp pp-wide" data-pp="contact">Contact on WhatsApp</button>' : '<p class="form-hint">Confidential investor opportunity — offers and questions go through RAQBO.</p>'}
             ${dlContactAllowed(l) && !(db.session && l.ownerId && l.ownerId === db.session.userId) ? `<button type="button" class="button button-outline pp-wide pp-chat" data-chat="listing" data-id="${esc(l.id)}">${DI(DIC.chat, 16)} Message ${l.ownerId ? 'the advertiser' : 'RAQBO'}</button>` : ''}
             <div class="pp-card-row"><button type="button" class="button button-outline ${fav ? 'is-saved' : ''}" data-pp="fav">${fav ? '♥ Saved' : '♡ Save'}</button><button type="button" class="button button-outline" data-pp="share">Share</button></div>

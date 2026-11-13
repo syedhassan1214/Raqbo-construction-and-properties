@@ -143,11 +143,11 @@ body{background:#fff}
 @media(max-width:620px){.footer-main{grid-template-columns:repeat(2,1fr)}}
 
 /* Floating WhatsApp */
-.wa-float{position:fixed;z-index:40;right:22px;bottom:22px;display:inline-flex;align-items:center;gap:9px;padding:13px 18px;border-radius:999px;color:#fff;background:#1fa855;box-shadow:0 12px 30px rgba(17,80,45,.35);font:700 13px var(--font-brand);transition:transform .15s,background .15s}
-.wa-float:hover{transform:translateY(-2px);background:#178c46}
-body.modal-open .wa-float,body.admin-open .wa-float{display:none}
+.rq-fab{position:fixed;z-index:40;right:22px;bottom:22px;display:inline-flex;align-items:center;gap:10px;padding:10px 20px 10px 10px;border:0;border-radius:999px;color:#16140f;background:linear-gradient(135deg,#f6d27c,#e3ad45);box-shadow:0 14px 34px rgba(22,20,15,.3);font:700 13px var(--font-brand);cursor:pointer;transition:transform .18s cubic-bezier(.2,.7,.2,1),box-shadow .18s}
+.rq-fab:hover{transform:translateY(-3px);box-shadow:0 18px 42px rgba(22,20,15,.38)}
+body.modal-open .rq-fab,body.admin-open .rq-fab{display:none}
 .preview-toast{bottom:88px;border-left:3px solid var(--gold);background:#121212}
-@media(max-width:620px){.wa-float span{display:none}.wa-float{padding:14px}.preview-toast{bottom:84px}}
+@media(max-width:620px){.rq-fab span{display:none}.rq-fab{padding:14px}.preview-toast{bottom:84px}}
 
 /* Modals & forms */
 .modal-card{border-radius:20px}

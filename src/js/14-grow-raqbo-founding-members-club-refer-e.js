@@ -218,7 +218,7 @@
     const me = gw.me; const signed = isComplete();
     const perks = [
       p.founding_enabled ? [GI.medal, 'Founding Member badge', `For the first ${p.founding_cap.toLocaleString('en-US')} members`] : null,
-      p.founding_enabled && p.founding_discount_pct ? [DIC.check, `${p.founding_discount_pct}% off, up to ${rs(p.founding_discount_max)}`, 'On your first eligible paid service'] : null,
+      p.founding_enabled && p.founding_discount_pct ? [DIC.check, `${p.founding_discount_pct}% off`, 'On your first eligible paid service'] : null,
       [DIC.home, 'Free property ads', 'Talk to buyers directly · no commission'],
       p.referral_enabled ? [GI.gift, 'Refer & Earn credit', `${rs(p.referral_member_credit)} per active member · ${rs(p.referral_owner_credit)} per approved listing`] : null
     ].filter(Boolean);
@@ -308,7 +308,7 @@
       </section>` : ''}
 
       ${me.founding_no && p.founding_discount_pct ? `<section class="gw-sec"><h3>${DI(GI.medal, 18)} Founding Member benefit</h3>
-        <p><b>${esc(p.founding_discount_pct)}% off, up to ${esc(rs(p.founding_discount_max))}</b>, on your first eligible paid RAQBO service (for example document verification, legal drafting or registry help).</p>
+        <p><b>${esc(p.founding_discount_pct)}% off</b>, on your first eligible paid RAQBO service (for example document verification, legal drafting or registry help).</p>
         ${fd ? `<p class="gw-mini">Requested for: ${esc(fd.note)} · ${st(fd.status)}${fd.admin_note ? ' · ' + esc(fd.admin_note) : ''}</p>` : `<form class="gw-inline" data-gw-founding><input name="note" maxlength="300" placeholder="Which service is it for?" aria-label="Service"><button type="submit" class="button button-primary">Use my discount</button></form>`}
       </section>` : ''}
 
@@ -531,7 +531,7 @@ Signature of authorised person: ____________________` }
     else if (a === 'invite') { requireSignIn(async () => { await gwLoadMe(); if (!gw.me) { toast(gwSetupMsg); return; } const link = refLink(gw.me.ref_code); const text = `Join me on RAQBO — Pakistan's property world in your pocket: ${link}`; if (navigator.share) { try { await navigator.share({ title: 'RAQBO', text, url: link }); return; } catch { /* fall back */ } } try { await navigator.clipboard.writeText(link); toast('Invite link copied. Share it on WhatsApp!'); } catch { openRewards(); } }); }
     else if (a === 'terms') openModal(`<div class="eyebrow"><span></span> RAQBO REWARDS</div><h2>Terms</h2><p>${gwTermsText(gw.pub || GW_DEFAULTS)}</p>`, { label: 'Rewards terms' });
     else if (a === 'copy') { const t = g.dataset.tpl ? (GUIDES.templates.find((x) => x.id === g.dataset.tpl) || {}).text : g.dataset.text; try { await navigator.clipboard.writeText(t || ''); toast('Copied.'); } catch { toast('Could not copy — select the text and copy it.'); } }
-    else if (a === 'print-tpl') { const t = GUIDES.templates.find((x) => x.id === g.dataset.tpl); if (!t) return; const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.append(f); const d = f.contentDocument; d.open(); d.write(`<!doctype html><title>${esc(t.title)}</title><pre style="font:13px/1.7 Georgia,serif;white-space:pre-wrap;margin:24mm">${esc(t.text)}\n\n\nSample format from RAQBO (raqbo.pk). Not legal advice — have it checked by a lawyer.</pre>`); d.close(); setTimeout(() => { try { f.contentWindow.print(); } catch { /* ignore */ } setTimeout(() => f.remove(), 2000); }, 200); }
+    else if (a === 'print-tpl') { const t = GUIDES.templates.find((x) => x.id === g.dataset.tpl); if (!t) return; const f = document.createElement('iframe'); f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0'; document.body.append(f); const d = f.contentDocument; d.open(); d.write(`<!doctype html><title>${esc(t.title)}</title><pre style="font:13px/1.7 Georgia,serif;white-space:pre-wrap;margin:24mm">${esc(t.text)}\n\n\nSample format from RAQBO (raqbo.com). Not legal advice — have it checked by a lawyer.</pre>`); d.close(); setTimeout(() => { try { f.contentWindow.print(); } catch { /* ignore */ } setTimeout(() => f.remove(), 2000); }, 200); }
     else if (a === 'edit-details') { const box = $('.gw-edit'); if (box) { box.hidden = !box.hidden; if (!box.hidden) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } }
     else if (a === 'welcome-skip') closeModal();
     else if (a === 'welcome-open') gwWelcomeModal();

@@ -137,7 +137,7 @@
   }
   function vendorCard(v) {
     const ps = priceSummary(v); const canBuy = v.escrow && v.products.some((p) => p.price != null && p.stock !== 'out');
-    const msg = `Hi ${v.owner}, I found ${v.shop} on RAQBO (raqbo.pk). I need ${v.materials.slice(0, 3).join(', ')} in ${v.city}. Please share your rates.`;
+    const msg = `Hi ${v.owner}, I found ${v.shop} on RAQBO (raqbo.com). I need ${v.materials.slice(0, 3).join(', ')} in ${v.city}. Please share your rates.`;
     return `<article class="mk-card" data-vendor="${esc(v.id)}">
       <div class="mk-card-top"><span class="mk-avatar">${esc(initialsOf(v.shop))}</span>
         <div class="mk-badges">${v.verified ? `<span class="mk-badge ver">${DI(DIC.check, 12)} Verified</span>` : ''}${v.escrow ? `<span class="mk-badge esc">${DI(DIC.lock, 12)} Protected pay</span>` : ''}${v.sample ? '<span class="mk-badge smp">Sample</span>' : ''}</div></div>
@@ -221,7 +221,7 @@
     if (!v) return '<div class="mk-in"><div class="mk-empty"><b>Vendor not found</b><small>This shop may no longer be listed.</small><button type="button" class="button button-primary" data-mk="dir">Back to directory</button></div></div>';
     const myV = mk.myVendor(); const own = myV && myV.id === v.id; const buyer = mk.data.buyer;
     const cats = [...new Set(v.products.map((p) => p.category))];
-    const msg = `Hi ${v.owner}, I found ${v.shop} on RAQBO (raqbo.pk). Please share your rates.`;
+    const msg = `Hi ${v.owner}, I found ${v.shop} on RAQBO (raqbo.com). Please share your rates.`;
     return `<div class="mk-in mk-vendor">
       <button type="button" class="mk-crumb" data-mk="dir">${DI('<path d="m15 18-6-6 6-6"/>', 15)} All vendors</button>
       <section class="mk-vhead">

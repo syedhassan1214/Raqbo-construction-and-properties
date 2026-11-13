@@ -58,7 +58,7 @@
     return vrQrP;
   }
   async function vrQrInto(box, text) {
-    try { const Q = await vrQrLib(); const tmp = document.createElement('div'); new Q(tmp, { text, width: 132, height: 132, correctLevel: Q.CorrectLevel.M }); await new Promise((r) => setTimeout(r, 30)); const c = tmp.querySelector('canvas'); const src = c ? c.toDataURL('image/png') : (tmp.querySelector('img') || {}).src; if (src) { box.innerHTML = `<img src="${src}" width="132" height="132" alt="QR code to check this report on raqbo.pk">`; box.classList.add('on'); } }
+    try { const Q = await vrQrLib(); const tmp = document.createElement('div'); new Q(tmp, { text, width: 132, height: 132, correctLevel: Q.CorrectLevel.M }); await new Promise((r) => setTimeout(r, 30)); const c = tmp.querySelector('canvas'); const src = c ? c.toDataURL('image/png') : (tmp.querySelector('img') || {}).src; if (src) { box.innerHTML = `<img src="${src}" width="132" height="132" alt="QR code to check this report on raqbo.com">`; box.classList.add('on'); } }
     catch { box.innerHTML = `<small>Scan unavailable — check at<br><b>${esc(text.replace(/^https?:\/\//, ''))}</b></small>`; }
   }
 
@@ -76,7 +76,7 @@
       <section><h3>What was not examined</h3>${na.length ? `<ul class="pass-checks">${na.map((c) => `<li class="na">${DI(DIC.info, 14)} ${esc(c.label)}</li>`).join('')}</ul>` : ''}<p class="vr-p">${para(r.not_examined, na.length ? '' : 'Nothing else recorded.')}</p></section>
       <section><h3>Concerns found</h3><p class="vr-p">${para(r.concerns, 'No concerns were recorded.')}</p></section>
       <section><h3>Limitations</h3><p class="vr-p">${para(r.limitations, 'This review relied on the documents supplied to RAQBO on the date above.')}</p></section>
-      <p class="pass-legal">This report records what RAQBO examined on the date shown. It is <b>not a guarantee of clear legal title</b> and is not a government record. Scan the QR code or visit raqbo.pk/#verify/${esc(r.report_no)} to confirm the report is genuine and still valid. Always obtain independent legal advice and check the official records before buying.</p>
+      <p class="pass-legal">This report records what RAQBO examined on the date shown. It is <b>not a guarantee of clear legal title</b> and is not a government record. Scan the QR code or visit raqbo.com/#verify/${esc(r.report_no)} to confirm the report is genuine and still valid. Always obtain independent legal advice and check the official records before buying.</p>
     </div>`;
   }
   async function vrOpenReport(listingId) {

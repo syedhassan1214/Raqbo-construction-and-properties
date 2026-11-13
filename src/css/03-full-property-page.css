@@ -1,6 +1,6 @@
 /* ================= Full property page ================= */
 body.pp-open{overflow:hidden}
-body.pp-open .wa-float{display:none}
+body.pp-open .rq-fab{display:none}
 .pp{position:fixed;z-index:57;inset:0;overflow-y:auto;background:#f8f6f1}
 .pp-top{position:sticky;top:0;z-index:3;background:rgba(11,11,12,.96);border-bottom:1px solid rgba(227,173,69,.18)}
 .pp-top-in{width:min(1240px,calc(100% - 32px));height:64px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}

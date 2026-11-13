@@ -337,7 +337,7 @@
   const WA_NUMBER = String(CFG.whatsappNumber || '923001223344').replace(/\D/g, '');
   const waLink = (text) => `https://wa.me/${WA_NUMBER}?text=${encodeURIComponent(text)}`;
   const openWhatsApp = (url) => { const w = window.open(url, '_blank'); if (w) { try { w.opener = null; } catch { /* ignore */ } } return !!w; };
-  const waMessage = (title, rows, body) => [`*${title}*`, ...rows.filter(([, v]) => v).map(([k, v]) => `*${k}:* ${v}`), body ? `\n*Message:*\n${body}` : '', '\n— Sent from raqbo.pk'].filter(Boolean).join('\n');
+  const waMessage = (title, rows, body) => [`*${title}*`, ...rows.filter(([, v]) => v).map(([k, v]) => `*${k}:* ${v}`), body ? `\n*Message:*\n${body}` : '', '\n— Sent from raqbo.com'].filter(Boolean).join('\n');
   const LOGO_SRC = ($('.brand-logo') || {}).src || '';
   const BRAND_HTML = (label) => `${LOGO_SRC ? `<img class="brand-logo" src="${esc(LOGO_SRC)}" alt="">` : ''}<span class="brand-word">RAQBO<small>${esc(label)}</small></span>`;
 
