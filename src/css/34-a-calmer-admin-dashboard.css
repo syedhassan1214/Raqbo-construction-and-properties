@@ -1,0 +1,12 @@
+/* ===== A calmer admin dashboard =====
+   The "live" dot and the refresh ring pulsed without stopping, which read as
+   the panel blinking. They now settle after a few seconds and the pulse is
+   gentler, while still showing that the figures are live. */
+.dash-dot:after{animation:dashPulse 2.4s ease-out 3!important}
+.dash-live.flash{box-shadow:0 0 0 3px rgba(230,172,66,.14)}
+.kpi-num.up,.kpi-num.down{transition:color .5s ease}
+.admin-content .live-dot,.ax-body .live-dot{animation:livepulse 1.8s 4!important}
+@media (prefers-reduced-motion:reduce){
+  .dash-dot:after,.admin-content .live-dot,.ax-body .live-dot{animation:none!important}
+}
+

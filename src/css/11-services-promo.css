@@ -1,0 +1,10 @@
+/* ================= Services promo ================= */
+.mk-promo{display:flex;align-items:center;gap:22px;margin-top:34px;padding:24px 26px;border:1px solid rgba(227,173,69,.35);border-radius:20px;color:#f1ece1;background:radial-gradient(ellipse at 100% 0,rgba(227,173,69,.22),transparent 55%),#0d0d0f;box-shadow:0 24px 50px rgba(17,14,8,.18)}
+.mk-promo-ico{flex:0 0 auto;width:64px;height:64px;display:grid;place-items:center;border-radius:18px;color:#16120a;background:var(--gold-grad)}
+.mk-promo-txt{flex:1}
+.mk-promo-new{display:inline-block;padding:3px 9px;border-radius:999px;color:#16120a;background:var(--gold-grad);font:800 10px var(--font-brand);letter-spacing:.12em}
+.mk-promo h3{margin:8px 0 6px;color:#fff;font:800 22px var(--font-display)}
+.mk-promo p{margin:0;color:#bdb6a8;font-size:14.5px;line-height:1.6}
+.mk-promo-btns{display:flex;flex-wrap:wrap;gap:10px}
+.mk-promo .button-outline{color:#f1ece1;border-color:#4a4130;background:transparent}
+@media(max-width:860px){.mk-promo{flex-direction:column;align-items:flex-start}}

@@ -1,0 +1,33 @@
+/* ================= Share ================= */
+.share-button{position:absolute;z-index:2;top:12px;right:54px;width:34px;height:34px;display:grid;place-items:center;border:0;border-radius:50%;color:#3a3226;background:rgba(255,255,255,.94);cursor:pointer;transition:transform .15s,color .15s}
+.share-button:hover{color:var(--gold-3);transform:scale(1.06)}
+@media(max-width:620px){.share-button{top:8px;right:44px;width:29px;height:29px}}
+.sh-prop{display:flex;align-items:center;gap:12px;margin:14px 0 18px;padding:10px;border:1px solid var(--line);border-radius:14px;background:#fbfaf7}
+.sh-thumb{flex:0 0 auto;width:64px;height:52px;border-radius:10px;background:#e9e2d3 center/cover no-repeat}
+.sh-prop b{display:block;color:var(--ink);font:800 15px var(--font-display)}
+.sh-prop small{color:var(--muted-dark);font-size:12.5px}
+.sh-label{display:block;margin-bottom:6px;color:var(--ink);font:700 12.5px var(--font-brand)}
+.sh-link{display:flex;gap:8px}
+.sh-link input{flex:1;min-width:0;height:46px;padding:0 12px;border:1px solid var(--line);border-radius:10px;background:#fbfaf7;color:var(--ink);font:600 13px var(--font-brand)}
+.sh-link .button{flex:0 0 auto;height:46px;white-space:nowrap}
+.sh-link .button.is-copied{background:#1fa855;color:#fff}
+.sh-note{margin:10px 0 18px}
+.sh-apps{display:grid;grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:10px}
+.sh-app{display:flex;flex-direction:column;align-items:center;gap:7px;padding:12px 6px;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--ink);font:700 12px var(--font-brand);text-decoration:none;cursor:pointer;transition:border-color .15s,transform .15s}
+.sh-app:hover{border-color:var(--gold);transform:translateY(-2px)}
+.sh-app svg,.sh-app .brand-icon{width:26px;height:26px;color:var(--gold-3)}
+.auth-invite{display:flex;align-items:center;gap:12px;margin:0 0 18px;padding:10px 12px;border:1px solid #ecdcb4;border-radius:14px;background:#fdf6e6}
+.auth-invite-thumb{flex:0 0 auto;width:70px;height:56px;border-radius:10px;background:#e9e2d3 center/cover no-repeat}
+.auth-invite small{display:block;color:var(--gold-3);font:800 10.5px var(--font-brand);letter-spacing:.1em;text-transform:uppercase}
+.auth-invite b{display:block;margin:2px 0;color:var(--ink);font:800 15px var(--font-display)}
+.auth-invite span{color:var(--muted-dark);font-size:12.5px}
+@media(max-width:480px){.sh-link{flex-direction:column}.sh-link .button{width:100%}}
+.footer-address{align-items:flex-start!important}
+.footer-address svg{flex:0 0 auto;margin-top:2px;color:var(--gold)}
+.footer-address span{display:block;line-height:1.5}
+.footer-address b{display:block;color:#e9e3d6;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+/* Sign-in screen: social logos in one horizontal row */
+.auth-social{flex-wrap:nowrap!important;gap:10px!important}
+.auth-social a{width:42px!important;height:42px!important;padding:0!important;justify-content:center;font-size:0!important;gap:0!important}
+.auth-social .brand-icon,.auth-social svg{width:20px!important;height:20px!important}
+@media(max-width:420px){.footer-social .social-row{gap:8px}.footer-social .social-row a{width:44px;height:44px}}

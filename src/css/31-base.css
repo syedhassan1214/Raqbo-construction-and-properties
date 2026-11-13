@@ -1,0 +1,72 @@
+/* =====================================================================
+   Polish pass — pictures that fade in, clearer focus, calmer admin tables
+   ===================================================================== */
+
+/* Pictures load as they come into view: show a quiet placeholder first,
+   then fade the photo in so cards never flash from grey to white. */
+[data-lazy-bg],.property-image[data-lazy-bg]{background-color:var(--line);background-image:linear-gradient(100deg,rgba(255,255,255,0) 20%,rgba(255,255,255,.55) 45%,rgba(255,255,255,0) 70%);background-size:220% 100%;animation:rq-shimmer 1.5s ease-in-out infinite}
+@keyframes rq-shimmer{0%{background-position:120% 0}100%{background-position:-120% 0}}
+[data-loaded]{animation:rq-fade .45s ease both}
+@keyframes rq-fade{from{opacity:.25}to{opacity:1}}
+.property-image[data-missing]{background-color:#efeadf;background-image:none;animation:none}
+
+/* A visible, consistent keyboard focus ring everywhere */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible,[role="button"]:focus-visible{outline:2px solid var(--gold);outline-offset:2px;border-radius:8px}
+.property-card:focus-within{box-shadow:0 0 0 2px rgba(227,173,69,.55),0 18px 40px rgba(16,20,18,.12)}
+
+/* Anchors stop below the sticky header instead of under it */
+[id]{scroll-margin-top:96px}
+
+/* Cards settle instead of jumping */
+.property-card{transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
+.property-card:hover{transform:translateY(-3px);box-shadow:0 20px 44px rgba(16,20,18,.13)}
+
+/* ---- Admin panel ---- */
+/* Figures sit in a grid at every width */
+.v3x-kgrid{grid-template-columns:repeat(auto-fill,minmax(200px,1fr))}
+@media (max-width:640px){.v3x-kgrid{grid-template-columns:repeat(2,1fr);gap:10px}.v3x-kpi{padding:12px 13px}.v3x-kpi b{font-size:1.2rem}}
+
+/* Long tables: the heading row stays put while the list scrolls */
+.ax-body .gw-table{border-collapse:separate;border-spacing:0}
+.ax-body .gw-table thead th{position:sticky;top:0;z-index:2;background:#fbf9f5;border-bottom:1px solid var(--line);font-size:.72rem;letter-spacing:.07em;text-transform:uppercase;color:var(--muted-dark)}
+.ax-body .gw-table tbody tr:nth-child(even){background:rgba(248,246,241,.6)}
+.ax-body .gw-table tbody tr{transition:background .15s}
+.ax-body .gw-table tbody tr:hover{background:rgba(227,173,69,.09)}
+.ax-body .gw-table td,.ax-body .gw-table th{padding:10px 12px;vertical-align:top}
+.ax-body .gw-table td small{color:var(--muted)}
+
+/* Empty states read as calm, not broken */
+.ax-body .admin-empty{display:grid;justify-items:center;gap:8px;padding:30px 22px;border:1px dashed var(--line);border-radius:16px;background:#fcfbf8;color:var(--muted-dark);text-align:center}
+
+/* Section headings inside a tab */
+.ax-body h3{margin:26px 0 10px;font-size:1.02rem;letter-spacing:.01em}
+.ax-body h3:first-child{margin-top:0}
+
+/* The sidebar item for the section you are in */
+.admin-sidebar button.active{position:relative}
+.admin-sidebar button.active::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:var(--gold-grad)}
+
+/* ---- Commercial & rental screens ---- */
+.rm-ctabs button{transition:border-color .18s,background .18s,color .18s,transform .18s,box-shadow .18s}
+.rm-ctabs button:hover{border-color:var(--gold);transform:translateY(-1px)}
+.rm-ctabs button.active{border-color:transparent;color:#16120a;background:var(--gold-grad);box-shadow:0 6px 16px rgba(200,148,47,.28)}
+.rm-ctabs button.active em{color:#16120a;background:rgba(255,255,255,.55)}
+.rm-ctabs button em{font-style:normal;font-weight:700;font-size:.72rem;padding:1px 6px;border-radius:999px;background:var(--sand);color:var(--muted-dark)}
+.chip-check{transition:border-color .18s,background .18s}
+.chip-check:hover{border-color:var(--gold)}
+.chip-check:has(input:checked){border-color:var(--gold);background:rgba(227,173,69,.12)}
+.rm-lw{transition:transform .25s cubic-bezier(.2,.7,.2,1),box-shadow .25s}
+.rm-lw:hover{transform:translateY(-2px);box-shadow:0 16px 36px rgba(16,20,18,.11)}
+.rm-ckind,.rm-cpurp{font-weight:700;letter-spacing:.05em}
+
+/* People who prefer less movement get less movement */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important;scroll-behavior:auto!important}
+  [data-lazy-bg]{animation:none}
+}
+
+/* Very narrow phones (320px): the "see more" button must stay on screen */
+@media (max-width:360px){
+  .rail-more{max-width:100%;white-space:normal;padding-left:14px;padding-right:14px}
+}
+

@@ -1,0 +1,96 @@
+/* =====================================================================
+   Readable text everywhere
+   A sweep of every page at phone, tablet and desktop width found text as
+   small as 5 pixels — unreadable on a phone, and the kind of thing that
+   makes a site feel unfinished. Nothing on RAQBO is now below about 10.5
+   pixels, and anything carrying real information (a price, a size, a
+   phone number, a form label) is at least 12 on a phone.
+   ===================================================================== */
+.brand-word small{font-size:7.5px;letter-spacing:.16em}
+.announcement-contact a{font-size:11.5px}
+.hero-copy .eyebrow,.section-heading .eyebrow{font-size:10.5px;letter-spacing:.16em}
+.hero-proof span{font-size:10.5px}
+.hero-connect-label{font-size:11px}
+.search-panel label span,.search-selects label span{font-size:11.5px}
+.search-panel .owner-check{font-size:11.5px}
+.search-panel .search-caption{font-size:11px}
+.pl-rv span b{font-size:10.5px}
+.pl-rv span small{font-size:10px}
+.heading-row .text-link{font-size:12px}
+.oa-card .oa-st,.oa-card .oa-spons,.oa-card .oa-sample{font-size:11px}
+.property-card .image-label,.property-card .owner-label{font-size:10.5px;padding:4px 8px}
+.property-card .property-location{font-size:12px}
+.property-card .property-specs span{font-size:11.5px}
+
+@media (max-width:640px){
+  .brand-word small{font-size:8px}
+  .announcement-contact a{font-size:12px}
+  .search-panel label span,.search-selects label span,.search-panel .owner-check{font-size:12.5px}
+  .search-panel .search-caption{font-size:11.5px}
+  .property-card .property-location,.property-card .property-specs span{font-size:12.5px}
+  .heading-row .text-link{font-size:13px}
+  .pl-rv span b{font-size:11.5px}.pl-rv span small{font-size:11px}
+}
+
+/* ---- Comfortable to tap ----
+   On a phone a control smaller than about 10 millimetres is hard to hit.
+   These are the ones the sweep found: links, filter chips, the language
+   button, the two phone numbers in the header and the search dropdowns. */
+@media (max-width:640px){
+  .announcement-contact a,.link-button,.text-link{display:inline-flex;align-items:center;min-height:34px}
+  .lang-btn{min-height:34px;min-width:48px}
+  .search-panel select,.search-selects select{min-height:38px}
+  .filter-chips button,.chip-row button,.seg button,.v3s-cat button{min-height:34px;padding-top:7px;padding-bottom:7px}
+  .gw-nudge-x{width:34px;height:34px}
+  footer .link-button,footer a{min-height:32px}
+}
+
+/* On the narrowest phones the header row has to wrap rather than push the
+   page sideways: the two numbers stack and the language button shrinks. */
+@media (max-width:380px){
+  .announcement-inner{flex-wrap:wrap;row-gap:2px}
+  .announcement-contact{flex-wrap:wrap;justify-content:center;gap:4px 10px;max-width:100%}
+  .announcement-contact a{font-size:11px;min-height:30px}
+  .lang-btn{min-width:40px;min-height:30px;padding-left:6px;padding-right:6px}
+}
+
+/* The price is the most important thing on a property card and was being
+   shown at 11 pixels on a phone, with the per-marla line at 6. The card's
+   only action, "View listing", was 8 pixels everywhere. All three now read
+   properly at every size. */
+.property-card .property-price{font-size:17px;letter-spacing:-.01em}
+.property-card .property-price small{font-size:11px;letter-spacing:.06em;margin-top:3px}
+.details-button{font-size:12.5px;padding:8px 2px 8px 6px}
+.brand-word small{font-size:9px;letter-spacing:.12em}
+@media (max-width:640px){
+  .property-card .property-price{font-size:16px}
+  .property-card .property-price small{font-size:11.5px}
+  .details-button{font-size:13px;min-height:34px}
+}
+@media (max-width:380px){ .brand-word small{display:none} }
+
+/* When an account is signed in, the account button in the header pushed the
+   whole page sideways on a 390-pixel phone. The header now keeps itself
+   inside the screen: the name is dropped and only the avatar is shown. */
+@media (max-width:430px){
+  .nav-actions{gap:8px;min-width:0;flex-shrink:1}
+  .acct{min-width:0}
+  .acct-btn{height:42px;padding:0 8px 0 4px;gap:6px;max-width:100%}
+  .acct-btn .acct-name,.acct-btn small,.acct-btn .acct-sub{display:none}
+  .acct-btn>span:not(.acct-avatar){max-width:0;overflow:hidden}
+}
+
+/* Comfortable to tap on a phone: the save and share buttons on a card, the
+   Buy/Rent/Sell switch, the verified filter and its help button were all
+   under 30 pixels, which is below what a thumb reliably hits. */
+@media (max-width:640px){
+  .favorite-button,.share-button{width:38px;height:38px}
+  /* Native tick boxes are 13 pixels on a phone; these are the ones people
+     actually use on a form, so they are made easier to hit. */
+  .chip-check input[type=checkbox],.pn-form input[type=checkbox],.rm-form input[type=checkbox],
+  label input[type=checkbox],label input[type=radio]{width:20px;height:20px;accent-color:var(--gold-3)}
+  .fx-verify .fx-help,.fx-help{width:32px;height:32px}
+  .deal-sell,.seg button,.deal-row button,[class*="fx-v-"]{min-height:34px}
+  .property-card .property-actions{gap:6px}
+}
+

@@ -1,0 +1,6 @@
+/* ================= Filter bar: never hide For rent ================= */
+.deal-switch{flex:0 0 auto;flex-wrap:nowrap}
+.deal-switch button{white-space:nowrap}
+.results-controls{justify-content:flex-end}
+@media(max-width:620px){.results-controls{width:100%;justify-content:flex-start}.deal-switch{width:100%}.deal-switch button{flex:1}}
+@media(min-width:801px) and (max-width:1100px){.main-nav{gap:16px}}

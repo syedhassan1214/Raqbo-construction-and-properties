@@ -1,0 +1,19 @@
+/* ===== Partner photographs, ratings and the new admin blocks ===== */
+.pn-avatar{flex:none;width:44px;height:44px;border-radius:50%;object-fit:cover;background:var(--line);box-shadow:0 0 0 1px rgba(16,20,18,.08)}
+.pn-avatar-txt{display:grid;place-items:center;font:800 15px/1 var(--font-display);letter-spacing:.04em;color:var(--muted-dark);background:linear-gradient(135deg,#f3eee2,#e7dfcd)}
+.pn-photo-row{display:flex;gap:16px;align-items:flex-start;padding:14px;border:1px solid var(--line);border-radius:14px;background:#fcfbf8;margin-bottom:16px}
+.pn-photo-row .pn-avatar{width:72px;height:72px}
+.pn-photo-row .pn-avatar-txt{font-size:24px}
+.pn-photo-form{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.pn-photo-field{display:block;margin:10px 0}
+.pn-photo-field input{display:block;margin-top:6px}
+.pn-photo-field small{display:block;margin-top:4px;color:var(--muted)}
+.pn-stars{display:inline-flex;align-items:center;gap:5px;margin-top:3px;color:#c8942f;font-size:.82rem;letter-spacing:.06em}
+.pn-stars em{font-style:normal;color:var(--muted);letter-spacing:0}
+.pn-franchise{margin:14px 0;padding:14px;border:1px solid var(--line);border-left:3px solid var(--gold);border-radius:12px;background:#fdfbf6}
+.pn-plist{margin:16px 0}
+.pn-plist .gw-table td small{display:block;color:var(--muted)}
+.pn-plist .pn-assign{display:flex;gap:6px;align-items:center}
+.pn-plist .pn-assign input{min-width:150px}
+@media (max-width:640px){.pn-photo-row{flex-direction:column}.pn-plist .gw-table{display:block;overflow-x:auto}}
+

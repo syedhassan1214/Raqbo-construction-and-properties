@@ -1,0 +1,6 @@
+/* ================= Card icons ================= */
+.service-icon{width:52px;height:52px;border-radius:14px;box-shadow:0 10px 22px rgba(200,148,47,.25)}
+.service-icon svg{width:26px;height:26px}
+.category-symbol{width:48px;height:48px;border-radius:13px;box-shadow:0 8px 18px rgba(200,148,47,.22)}
+.category-symbol svg{width:24px;height:24px}
+.service-card:hover .service-icon,.category-card:hover .category-symbol{transform:translateY(-2px);transition:transform .2s}

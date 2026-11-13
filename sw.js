@@ -1,7 +1,7 @@
 // RAQBO service worker — makes the site installable and quick to open.
 // Pages: network first (always fresh), falls back to the saved copy when offline.
 // Logos/icons/fonts: served from the phone's cache. Supabase data is never cached here.
-const V = 'raqbo-v1';
+const V = 'raqbo-v2';
 const CORE = ['/', '/content.js', '/manifest.webmanifest', '/assets/logo-emblem.webp', '/assets/logo-full.webp', '/assets/favicon.png', '/assets/icon-192.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(V).then((c) => c.addAll(CORE)).catch(() => {}).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => { e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== V).map((k) => caches.delete(k)))).then(() => self.clients.claim())); });

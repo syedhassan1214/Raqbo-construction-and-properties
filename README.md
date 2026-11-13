@@ -3,6 +3,24 @@
 Complete website + backend setup for RAQBO, a Pakistan property platform.
 **To put it online, follow `HOSTING_GUIDE.md`.**
 
+## Editing the code (read this first)
+The website's code lives in `src/`, split into small files. `index.html` and `assets/app.<hash>.css/js` are **generated**, so never edit them by hand: your change would be lost at the next build.
+
+| Where | What |
+|---|---|
+| `src/index.html` | Page markup and the **RAQBO SETTINGS** block (Supabase URL/key, WhatsApp number). `<!-- @css -->` and `<!-- @js -->` mark where the styles and app are linked |
+| `src/css/NN-name.css` | Styles, one file per section, loaded in number order |
+| `src/js/NN-name.js` | The app, one file per feature, joined in number order (they share one scope, so keep the order) |
+| `build.mjs` | Joins and minifies `src/` into `index.html` + `assets/app.<hash>.css` + `assets/app.<hash>.js` |
+
+After any change:
+```
+npm install        (first time only)
+npm run bundle     (or: npm run bundle:dev for unminified output, easier to debug)
+git add -A && git commit -m "…" && git push
+```
+The file names change with the content, so visitors get the new version immediately while unchanged files stay cached for 30 days.
+
 ## Folder contents
 | Folder / file | What it is |
 |---|---|

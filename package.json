@@ -1,0 +1,12 @@
+{
+  "name": "raqbo",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "bundle": "node build.mjs",
+    "bundle:dev": "node build.mjs --dev"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
+  }
+}

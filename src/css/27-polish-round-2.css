@@ -1,0 +1,40 @@
+/* ===== Polish round 2 ===== */
+.pl-tabs{display:none}
+@media(max-width:760px){
+  .pl-tabs{position:fixed;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:45;display:grid;grid-template-columns:repeat(5,1fr);align-items:end;height:62px;padding:0 6px;border-radius:22px;background:rgba(14,14,16,.92);backdrop-filter:blur(14px) saturate(140%);-webkit-backdrop-filter:blur(14px) saturate(140%);border:1px solid rgba(255,255,255,.08);box-shadow:0 18px 40px rgba(0,0,0,.35)}
+  .pl-tabs button{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;height:62px;border:0;background:none;color:#8f8a80;font:700 10.5px var(--font-brand);cursor:pointer;-webkit-tap-highlight-color:transparent}
+  .pl-tabs button.on{color:#f6d27c}.pl-tabs button.on::after{content:"";position:absolute;bottom:7px;width:4px;height:4px;border-radius:50%;background:#f6d27c}
+  .pl-tabs button:active svg{transform:scale(.88)}.pl-tabs svg{transition:transform .15s}
+  .pl-tabs .pl-tabs-sell{height:auto;padding-bottom:9px}
+  .pl-tabs .pl-tabs-sell svg{width:50px;height:50px;padding:13px;margin-top:-24px;border-radius:50%;background:var(--gold-grad);color:#16120a;box-shadow:0 10px 24px rgba(200,148,47,.45),0 0 0 5px rgba(14,14,16,.92)}
+  .pl-tabs .pl-tabs-sell span{color:#f6d27c}
+  .pl-tabs em{position:absolute;top:9px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;border-radius:999px;background:#ef4444;color:#fff;font:800 10px/17px var(--font-brand);font-style:normal;text-align:center}
+  body.has-pl-tabs{padding-bottom:84px}
+  body.has-pl-tabs .wa-float{bottom:92px!important;right:14px!important}
+  body.has-pl-tabs .pl-top{bottom:150px}
+  body.gate-open .pl-tabs,body.admin-open .pl-tabs,body:has(.modal-backdrop) .pl-tabs,body:has(.ax-pal-back:not([hidden])) .pl-tabs{display:none}
+}
+/* image placeholders breathe while loading */
+.property-image,.rail-card .rc-img,.ax-img,.ax-photo,.pp-hero{background-color:#e9e3d6;animation:plBreath 1.6s ease-in-out infinite}
+@keyframes plBreath{50%{background-color:#f3eee4}}
+@media(prefers-reduced-motion:reduce){.property-image,.rail-card .rc-img,.ax-img,.ax-photo,.pp-hero{animation:none}}
+/* hero word shimmer */
+.hero h1 em{background:linear-gradient(100deg,#f6d27c 20%,#fff4d6 40%,#e3ad45 60%,#f6d27c 80%);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent!important;animation:plShine 6s ease-in-out infinite}
+@keyframes plShine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
+@media(prefers-reduced-motion:reduce){.hero h1 em{animation:none}}
+/* gold buttons: light sweep on hover */
+.button-primary{position:relative;overflow:hidden;isolation:isolate}
+.button-primary::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.45) 50%,transparent 70%);transform:translateX(-120%);transition:transform .7s ease}
+.button-primary:hover::after{transform:translateX(120%)}
+/* cards: crisper shadow and gold edge on hover */
+.property-card{transition:box-shadow .25s,transform .25s,border-color .25s}
+.property-card:hover{box-shadow:0 22px 44px rgba(17,14,8,.12);border-color:rgba(200,148,47,.35)}
+.property-card .price,.property-card [class*=price] b{letter-spacing:-.01em}
+.preview-toast{pointer-events:none}
+/* About: name story */
+.au-name{background:#fbf8f1}.au-name-grid{display:grid;grid-template-columns:240px 1fr;gap:40px;align-items:center}
+.au-name-mark{display:grid;place-items:center;gap:6px;aspect-ratio:1;border-radius:28px;background:radial-gradient(120% 120% at 30% 20%,#2a2214,#0f0f10);color:#f6d27c;box-shadow:0 24px 50px rgba(17,14,8,.18)}
+.au-name-mark b{font:700 64px/1 'Noto Nastaliq Urdu','Jameel Noori Nastaleeq',serif}.au-name-mark small{color:#c9b98f;font:700 11px var(--font-brand);letter-spacing:.14em}
+.au-name h2{margin:10px 0 12px;font:800 clamp(26px,3.4vw,40px)/1.15 var(--font-display)}.au-name p{max-width:640px;color:var(--muted-dark);font-size:16px;line-height:1.7}
+@media(max-width:700px){.au-name-grid{grid-template-columns:1fr;gap:20px}.au-name-mark{max-width:200px}}
+.au-endorse{grid-column:1/-1;margin:14px 0 0;color:#a8a29e;font-size:12px;line-height:1.5}

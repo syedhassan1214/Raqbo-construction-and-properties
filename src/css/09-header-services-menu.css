@@ -1,0 +1,11 @@
+/* ================= Header: Services + Menu ================= */
+.site-header .mobile-menu-button,.site-header .sign-in-button,.menu-trigger,.nav-services{display:none!important}
+.nav-wrap{gap:14px}
+.nav-actions{margin-left:auto;display:flex;align-items:center;gap:10px}
+.nav-services{display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 16px;border:1px solid rgba(227,173,69,.35);border-radius:12px;color:var(--ink);background:transparent;font:700 13.5px var(--font-brand);cursor:pointer;transition:.15s}
+.nav-services:hover{border-color:var(--gold);background:#fdf6e6}
+.menu-trigger{display:inline-flex;align-items:center;gap:9px;height:44px;padding:0 12px 0 6px;border:0;border-radius:12px;color:#f6efe0;background:#111113;font:700 13.5px var(--font-brand);cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.18);transition:transform .15s}
+.menu-trigger:not(:has(.mt-avatar)){padding-left:14px}
+.menu-trigger:hover{transform:translateY(-1px)}
+.mt-avatar{width:32px;height:32px;display:grid;place-items:center;border-radius:9px;color:#16120a;background:var(--gold-grad);font:800 12.5px var(--font-display)}
+@media(max-width:760px){.nav-services,.nav-post{display:none!important}.menu-trigger .mt-label{display:none}.menu-trigger{padding:0 10px 0 6px}.menu-trigger:not(:has(.mt-avatar)){padding:0 12px}}
