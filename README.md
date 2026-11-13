@@ -70,6 +70,8 @@ The file names change with the content, so visitors get the new version immediat
 ## Backend
 Everything runs on **Supabase** (free plan): sign-in, Postgres database with row-level security, file storage for photos/videos, and real-time updates for reviews, live rates and orders.
 
+**Property offers and chat:** Apply `supabase/update_35_listing_offers.sql` after the preceding updates on an existing Supabase project before deploying the rebuilt website. For new projects, the update is included at the end of `schema.sql` and `FRESH_INSTALL.sql`; apply updates 32–34 separately after `schema.sql` if needed. `FRESH_INSTALL.sql` deletes existing data and is for a fresh installation only. Published normal sale and rental listings accept offers; auctions use their separate bidding workflow. Sellers see received offers highest first, and participants can use the existing listing conversation for public offers. Investor-only opportunities remain coordinated by RAQBO. An accepted offer is conditional, not a completed sale or rental; payment and agreements are not automated by this feature.
+
 **About escrow payments:** money is paid into RAQBO's own account (details in `content.js`) and the admin confirms each payment and payout in the marketplace Admin tab. This works today without any payment gateway. Automatic card/wallet payments need a merchant account (JazzCash, Easypaisa or a bank gateway) and can be connected later. The website talks to Supabase directly — there is no separate server. Your project URL and public (anon) key are already inside `website/index.html`.
 Never put the Supabase **service_role** key in the website.
 

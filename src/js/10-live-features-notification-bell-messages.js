@@ -18,7 +18,7 @@
       },
       async msgs(cid) { return (await q(sb.from('messages').select('id, conversation_id, sender_id, body, created_at, read_at').eq('conversation_id', cid).order('id', { ascending: true }).limit(300), 'Could not load messages.')) || []; },
       async send(cid, body) { return q(sb.from('messages').insert({ conversation_id: cid, body }).select('id, conversation_id, sender_id, body, created_at, read_at').single(), 'Message not sent.'); },
-      async start(t) { if (t.wanted) return q(sb.rpc('start_wanted_chat', { p_wanted: t.wanted }), 'Could not start the chat.'); return q(sb.rpc('start_conversation', { p_listing: t.listing || null, p_vendor: t.vendor || null, p_order: t.order || null }), 'Could not start the chat.'); },
+      async start(t) { if (t.offer) { const { data, error } = await sb.rpc('start_offer_chat', { p_offer: t.offer }); if (error) throw new Error(/does not exist|schema cache|could not find the function/i.test(error.message || '') ? 'Offer chat is being set up. (Admin: run update_35_listing_offers.sql in Supabase.)' : (error.message || 'Could not start the chat.')); return data; } if (t.wanted) return q(sb.rpc('start_wanted_chat', { p_wanted: t.wanted }), 'Could not start the chat.'); return q(sb.rpc('start_conversation', { p_listing: t.listing || null, p_vendor: t.vendor || null, p_order: t.order || null }), 'Could not start the chat.'); },
       async read(cid) { try { await sb.rpc('mark_conversation_read', { p_conv: cid }); await sb.from('notifications').update({ read_at: new Date().toISOString() }).is('read_at', null).eq('link', '#messages/' + cid); } catch { /* ignore */ } },
       subThread(cid, cb) { const ch = sb.channel('msg-' + cid).on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: 'conversation_id=eq.' + cid }, (p) => cb(p.new)).subscribe(); return () => sb.removeChannel(ch); },
       subInbox(cb) { const ch = sb.channel('inbox-' + (lvMe() || 'x')).on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => cb()).subscribe(); return () => sb.removeChannel(ch); }
@@ -52,7 +52,16 @@
       },
       async start(t) {
         const u = lvMe(); if (!u) throw new Error('Please sign in to send messages.'); const d = read(); let other = null; let subj = 'RAQBO support'; let otherName = 'RAQBO team';
-        if (t.listing) { const l = byId(t.listing); if (!l) throw new Error('This property is not available.'); other = l.ownerId || null; if (other === u) throw new Error('This is your own listing.'); subj = l.title + (l.ref ? ' · ' + l.ref : ''); otherName = other ? l.ownerName || 'Advertiser' : 'RAQBO team'; }
+        if (t.offer) {
+          const o = store.get('deals.offers', []).find((x) => x.id === t.offer); const l = o && byId(o.listing_id);
+          if (!o || !l || !o.buyer_id || !l.ownerId || ![o.buyer_id, l.ownerId].includes(u)) throw new Error('This conversation is not available.');
+          if ((l.channel || 'public') !== 'public') throw new Error('Private opportunities are coordinated through RAQBO.');
+          if (!['submitted', 'countered', 'accepted'].includes(o.status) || (o.status !== 'accepted' && o.expires_at && Date.parse(o.expires_at) <= Date.now())) throw new Error('This offer is no longer open for a new conversation.');
+          let c = d.c.find((x) => x.starter_id === o.buyer_id && x.other_id === l.ownerId && x.listing_id === l.id);
+          if (!c) { const accounts = Object.values(store.get('accounts', {})); const buyer = accounts.find((x) => x.userId === o.buyer_id); c = { id: uid('cv'), starter_id: o.buyer_id, other_id: l.ownerId, listing_id: l.id, subject: l.title + (l.ref ? ' · ' + l.ref : ''), starter_name: (buyer && buyer.name) || 'RAQBO member', other_name: l.ownerName || 'Advertiser', last_message_at: now(), last_preview: '', last_sender: null, created_at: now() }; d.c.push(c); write(d); }
+          return c.id;
+        }
+        if (t.listing) { const l = byId(t.listing); if (!l) throw new Error('This property is not available.'); if ((l.channel || 'public') !== 'public') throw new Error('Private opportunities are coordinated through RAQBO.'); other = l.ownerId || null; if (other === u) throw new Error('This is your own listing.'); subj = l.title + (l.ref ? ' · ' + l.ref : ''); otherName = other ? l.ownerName || 'Advertiser' : 'RAQBO team'; }
         else if (t.vendor) { const v = mk.vendor(t.vendor); if (!v) throw new Error('This shop is not available.'); other = v.ownerId || null; if (other === u) throw new Error('This is your own shop.'); subj = v.shop; otherName = other ? v.owner || v.shop : 'RAQBO team'; }
         else if (t.order) { const o = mk.order(t.order); if (!o) throw new Error('Order not found.'); const v = mk.vendor(o.vendorId); other = o.buyerId === u ? (v && v.ownerId) || null : o.buyerId; subj = `Order ${o.ref} · ${v ? v.shop : ''}`; otherName = o.buyerId === u ? (v ? v.shop : 'Vendor') : o.buyerName; }
         else if (t.wanted) { const w = (store.get('growth', {}).wanted || []).find((x) => x.id === t.wanted && x.status === 'published'); if (!w) throw new Error('This request is no longer open.'); other = w.user_id; if (other === u) throw new Error('This is your own request.'); subj = `Property wanted: ${w.property_type} in ${w.city} · ${w.ref}`; otherName = w.poster_name || 'RAQBO member'; }
@@ -225,5 +234,5 @@
     });
   }
   window.addEventListener('popstate', () => { if (/^#messages/.test(location.hash)) { const m = location.hash.match(/^#messages\/(.+)$/); if (!lv.inbox || lv.inbox.hidden) openInbox(m && m[1]); else if (m) lvOpenThread(m[1]); else lvBack(); } else closeInbox({ fromHistory: true }); });
-  document.addEventListener('click', (e) => { const b = e.target.closest('[data-chat]'); if (!b) return; e.preventDefault(); const k = b.dataset.chat; const id = b.dataset.id; startChat(k === 'listing' ? { listing: id } : k === 'vendor' ? { vendor: id } : k === 'order' ? { order: id } : {}, b); });
+  document.addEventListener('click', (e) => { const b = e.target.closest('[data-chat]'); if (!b) return; e.preventDefault(); const k = b.dataset.chat; const id = b.dataset.id; startChat(k === 'offer' ? { offer: id } : k === 'listing' ? { listing: id } : k === 'vendor' ? { vendor: id } : k === 'order' ? { order: id } : {}, b); });
 
