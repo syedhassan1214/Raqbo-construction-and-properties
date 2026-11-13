@@ -498,7 +498,7 @@
       <div class="eyebrow"><span></span> REPORT A PROPERTY</div><h2>What’s wrong with this listing?</h2>
       <p class="modal-lead">${esc(l.title)} · ${esc(l.area)}, ${esc(l.city)}. Reports go to the RAQBO review team.</p>
       <form class="modal-form" novalidate>
-        <fieldset><legend>Reason</legend>${REPORT_REASONS.map((r, i) => `<label class="consent-check"><input type="radio" name="reason" value="${esc(r)}" ${i ? '' : 'checked'}> ${esc(r)}</label>`).join('')}</fieldset>
+        <fieldset><legend>Reason</legend>${REPORT_REASONS.map((r, i) => `<label class="consent-check"><input type="radio" name="reason" value="${esc(r)}" ${i ? '' : 'checked'}> ${esc(r === 'Suspicious activity' ? 'Suspicious activity or spam' : r)}</label>`).join('')}</fieldset>
         <label>Details<textarea name="details" maxlength="3000" placeholder="Tell us what you noticed — e.g. wrong price, photos from another property, asked for advance payment…"></textarea></label>
         <div class="modal-form-row"><label>Your name (optional)<input name="name" maxlength="120" value="${esc(s.name || '')}"></label><label>Mobile (optional)<input name="phone" value="${esc(s.phone || '')}" inputmode="tel" placeholder="03XX XXXXXXX"></label></div>
         <div class="form-error" hidden></div>
