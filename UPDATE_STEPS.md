@@ -1,28 +1,14 @@
-# RAQBO update: edit/delete listings, spam protection, admin alerts, legal pages
+# RAQBO update: Firebase authentication, spam protection, admin alerts, legal pages
 
 Do these once, in order.
 
-## 1. Update the database (2 min)
-Supabase → **SQL Editor → + New query**. Paste all of `supabase/update_2_edit_spam.sql` and click **Run**.
-It should say *Success*.
+## 1. Set up Firebase Authentication and Supabase data
+Follow `SETUP.md` in order. If the existing-database Firebase UID migration already succeeded, rerun only `supabase/schema.sql` to apply the optional profile-phone change. Run `supabase/firebase_auth_migration.sql` first only if you have not run it before.
 
-This adds:
-- Advertisers can **edit** their listings (edits go back to review and are hidden until approved) and **delete** them.
-- Spam limits: 10 new listings per day, and 10 service requests or reports per hour, per account.
-- Only signed-in, email-verified users can send service requests or reports.
+Firebase handles Google sign-in or email/password with Firebase email-verification links. Phone sign-in and email OTP are removed. Follow `SETUP.md` to deploy the Firebase-to-Supabase bridge; Firestore and custom SMTP are not needed.
 
-(`supabase/schema.sql` already includes all of this for brand-new projects.)
-
-## 2. Spam protection with Cloudflare Turnstile (10 min, free)
-1. Go to **dash.cloudflare.com** (create a free account) → **Turnstile → Add widget**.
-   - Name: RAQBO. Hostnames: `raqbo.pk` and `localhost`. Mode: **Managed**.
-   - Copy the **Site Key** and the **Secret Key**.
-2. Supabase → **Authentication → Attack Protection → Enable Captcha protection**. Choose **Turnstile** and paste the **Secret Key**. Click **Save**.
-3. In `index.html`, find **RAQBO SETTINGS** and paste the **Site Key**:
-   ```js
-   turnstileSiteKey: '0x4AAAAAAA...',
-   ```
-Do steps 2 and 3 together. If only one is done, sign-in codes and the admin login will fail.
+## 2. Spam protection
+The database schema enforces per-account submission limits for listings, enquiries and reports.
 
 ## 3. Admin email alerts with n8n (10 min)
 1. In n8n: **Workflows → Import from File** → `n8n/RAQBO_admin_alerts.n8n.json`.

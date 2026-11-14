@@ -1,6 +1,7 @@
 -- =====================================================================
--- RAQBO database UPDATE — run once in Supabase SQL Editor (New query → paste → Run)
--- For projects that already ran the previous schema.sql.
+-- Legacy RAQBO update for projects still using Supabase Auth UUIDs.
+-- Do not run this after switching to Firebase Auth; run firebase_auth_migration.sql
+-- followed by schema.sql instead.
 -- Adds: advertisers can edit & delete their own listings (edits go back to review),
 --       spam limits, and enquiries/reports only from signed-in verified users.
 -- Safe to run more than once.

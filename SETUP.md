@@ -1,101 +1,76 @@
-# RAQBO setup: email code + Google sign-in (Supabase only)
+# RAQBO setup: Firebase Authentication + Supabase data
 
-Sign-in no longer uses SMS or Firebase.
-- **Create account:** name, email and mobile number, then a code sent **by email**, then the account is created.
-- **Google:** choose a Google account, then a code is emailed to that Gmail, then the user adds a mobile number and the account is created.
-- **Sign in later:** email, then the emailed code.
+Firebase handles Google sign-in and email/password accounts with Firebase email-verification links. Supabase is used only for the marketplace database and listing media storage; Supabase Auth is not used. Phone-number sign-in and email OTP codes are not used.
 
-You **don't need** Firebase, the Blaze plan, a card or the Cloud Function anymore. Everything runs on Supabase's free plan.
+The Firebase web configuration for project `raqbo-cff5e` is already in `index.html`. Web API keys are public identifiers; never add a Firebase service-account key or Supabase service-role key to the website.
 
-Files:
-| File | What it is |
-|---|---|
-| `index.html` | The website, already connected to your Supabase project |
-| `supabase/schema.sql` | Database setup |
-| `supabase/reset_old_setup.sql` | Run once **only if** you already ran an older RAQBO `schema.sql` |
+## 1. Configure Firebase Authentication
 
----
+In the [Firebase Console](https://console.firebase.google.com/project/raqbo-cff5e):
 
-## Step 1: Database (5 min)
-Supabase Dashboard → **SQL Editor → New query**.
-1. **If you ran an earlier RAQBO schema.sql before:** paste `reset_old_setup.sql` and click **Run**.
-2. Paste all of `schema.sql` and click **Run**. It should say *Success*.
-3. If you added Firebase under **Authentication → Third-Party Auth**, you can delete it. It's no longer used.
+1. Open **Authentication → Sign-in method** and enable **Email/Password** and **Google**.
+2. In **Authentication → Settings → Authorized domains**, add `localhost` and your production website hostname (for example, `raqbo.pk`).
+3. Configure the email verification template under **Authentication → Templates** if you want to customize its sender or wording.
+4. Google sign-in uses a redirect, so allow pop-ups/redirects and third-party sign-in for your website if your browser blocks them.
 
-## Step 2: Let Supabase send emails (custom SMTP), 10 min
-Supabase's built-in email only sends to your own team's addresses, so customers won't get codes until you add an email sender.
+## 2. Connect Firebase identities to Supabase data
 
-**Easiest: use the RAQBO Gmail**
-1. Sign in to **raqbo.official@gmail.com**, then go to **myaccount.google.com → Security** and turn on **2-Step Verification**.
-2. In the same Security page, search for **App passwords**. Create one named "RAQBO Supabase" and copy the 16-letter password.
-3. Supabase → **Authentication → Emails → SMTP Settings → Enable custom SMTP**:
-   - Sender email: `raqbo.official@gmail.com`, sender name: `RAQBO`
-   - Host: `smtp.gmail.com`, port: `465`
-   - Username: `raqbo.official@gmail.com`, password: the 16-letter app password
-   - Click **Save**.
-4. Go to **Authentication → Rate Limits** and raise *emails per hour* to, for example, `100`.
+Supabase verifies Firebase ID tokens. A Firebase Function adds the required `role: "authenticated"` token claim after Firebase confirms the email. This does not create Supabase Auth users.
 
-Gmail allows roughly 500 emails a day. For more, use a free email service such as Brevo or Resend and enter its SMTP details instead.
-
-## Step 3: Put the code in the email (3 min)
-Supabase → **Authentication → Emails → Templates**. Edit **both** "Magic Link" and "Confirm signup".
-
-Subject: `Your RAQBO code: {{ .Token }}`
-
-Body:
-```html
-<h2>Your RAQBO verification code</h2>
-<p>Enter this code on the RAQBO website:</p>
-<p style="font-size:28px;font-weight:700;letter-spacing:6px">{{ .Token }}</p>
-<p>This code expires soon. If you didn’t request it, you can ignore this email.</p>
-<p>— RAQBO · Properties • Land • Investment · raqbo.pk</p>
-```
-Click **Save** on each template.
-
-## Step 4: Google sign-in (10 min)
-1. Go to **console.cloud.google.com**. Select a project; you can reuse **raqbo-cff5e** or create a new one.
-2. **APIs & Services → OAuth consent screen** (shown as "Google Auth Platform" on newer screens):
-   - App name **RAQBO**, support email **raqbo.official@gmail.com**, user type **External**.
-   - When finished, click **Publish app** so anyone with a Google account can sign in.
-3. **APIs & Services → Credentials → Create credentials → OAuth client ID → Web application**:
-   - **Authorized JavaScript origins:** `http://localhost:5500` and `https://raqbo.pk`
-   - **Authorized redirect URIs:** `https://usamujceckeghagaller.supabase.co/auth/v1/callback`
-   - Click **Create** and copy the **Client ID** and **Client secret**.
-4. Supabase → **Authentication → Sign In / Providers → Google** → enable it, paste the Client ID and secret, and click **Save**.
-5. Supabase → **Authentication → URL Configuration**:
-   - **Site URL:** `https://raqbo.pk` (use `http://localhost:5500` while testing)
-   - **Redirect URLs:** add `http://localhost:5500/**` and `https://raqbo.pk/**`
-
-## Step 5: Test on your PC
-In Command Prompt:
-```
-cd /d C:\Users\bombaytraders\Projects\raqbo-repo
-npx serve -l 5500
-```
-Open **http://localhost:5500/index.html**.
-1. The sign-in screen appears. Choose **Create account** and enter your name, email and mobile number.
-2. Check your email (and Spam) for the code, then enter it. You're now in the website.
-3. Sign out from **My account**, then try **Continue with Google**. You'll get an emailed code, add your mobile number, and you're in.
-
-## Step 6: Make yourself admin
-1. Supabase → **Authentication → Users → Add user → Create new user**. Enter your email and a password, and tick **Auto Confirm User**.
-2. **SQL Editor**, run (change the email):
-   ```sql
-   update public.profiles set role = 'admin', full_name = 'RAQBO Admin'
-   where email = 'raqbo.official@gmail.com';
+1. In Supabase, open **Authentication → Third-party Auth → Add provider → Firebase** and enter project ID `raqbo-cff5e`.
+2. Firebase Cloud Functions require the **Blaze** plan. Link a Google Cloud billing account in Firebase **Usage and billing**. Firestore is not needed for this setup.
+3. Install Node.js 22, then open PowerShell in the repository root and deploy the bridge:
+   ```powershell
+   npx firebase-tools login
+   npx firebase-tools use raqbo-cff5e
+   Set-Location firebase/functions
+   npm install
+   npx firebase-tools deploy --only functions:ensureSupabaseRole
+   Set-Location ../..
    ```
-3. Open **http://localhost:5500/index.html#admin** and sign in with that email and password.
+   The function only grants the fixed `authenticated` claim to a signed-in user whose Firebase email is verified. RAQBO administrator access remains controlled by `profiles.role` in Supabase. Do not put SMTP passwords, Firebase service-account keys, or Supabase service-role keys in website files.
 
-## Step 7: Go live
-Upload `index.html` and the `icons` folder to your raqbo.pk hosting (or Netlify/Vercel). Check that Steps 4 and 5 list `https://raqbo.pk`.
+## 3. Apply the database schema
+
+For an existing RAQBO database whose Firebase UID migration already succeeded, open **Supabase → SQL Editor** and run the updated `supabase/schema.sql`. Do not rerun `supabase/firebase_auth_migration.sql`; it is a one-time migration that preserves old records without linking them to Firebase users.
+
+For a new empty database, run only `supabase/schema.sql`.
+
+Do not run `supabase/reset_old_setup.sql` unless you intentionally want to delete existing RAQBO data.
+
+## 4. Test
+
+Run the website locally, for example:
+
+```powershell
+npx serve -l 5501
+```
+
+1. Create an account with name, email and password. Open Firebase's verification link, then return to RAQBO.
+2. Sign in with email/password. A verified email is required.
+3. Test Google sign-in. Google verifies the email as part of its sign-in flow.
+4. After sign-in, save a favorite or start a listing to confirm Supabase accepts the Firebase token.
+
+If Supabase returns an authorization/RLS error, verify the Firebase third-party integration and that `ensureSupabaseRole` is deployed.
+
+## 5. Make a Firebase user an admin
+
+Create and verify the staff account through Firebase email/password sign-in, and complete its RAQBO profile. Then run in the Supabase SQL Editor:
+
+```sql
+update public.profiles
+set role = 'admin'
+where email = 'staff@example.com';
+```
+
+Replace the email with the exact staff account email. Open the website with `#admin` and sign in using that verified Firebase email/password account.
 
 ## Troubleshooting
-| Message | Fix |
+
+| Problem | Check |
 |---|---|
-| "Email sending is not set up yet" | Finish Step 2 (custom SMTP) |
-| The email arrives without a code (just a link) | Finish Step 3 (templates with `{{ .Token }}`) |
-| "Google sign-in is not enabled yet" | Finish Step 4, part 4 |
-| Google shows `redirect_uri_mismatch` | Check the redirect URI in Step 4, part 3, character by character |
-| Google returns to the wrong page | Add the address to the Redirect URLs in Step 4, part 5 |
-| "Couldn't load properties" | Run `schema.sql` (Step 1) |
-| "No account found with this email" | Use **Create account** first |
+| `auth/unauthorized-domain` | Add the current hostname under Firebase **Authentication → Settings → Authorized domains**. |
+| `auth/operation-not-allowed` | Enable Email/Password and Google under Firebase **Authentication → Sign-in method**. |
+| Email verification link does not return to RAQBO | Confirm the website hostname is authorized in Firebase and open the link in a browser where the site is accessible. |
+| Firebase signs in, but listings/storage return an RLS error | Confirm Supabase Firebase third-party auth is configured, Blaze billing is enabled, and `ensureSupabaseRole` deployed successfully. Run the updated `schema.sql`. |
+| New user cannot submit listings | Finish the RAQBO profile so the verified Firebase account has a `profiles` row with `verified = true`. |

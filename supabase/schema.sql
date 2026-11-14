@@ -1,5 +1,5 @@
 -- =====================================================================
--- RAQBO — Supabase database setup (email OTP + Google sign-in)
+-- RAQBO — Supabase database setup (Firebase Auth + Supabase data/storage)
 -- Run this whole file once in: Supabase Dashboard → SQL Editor → New query → Run
 -- If you ran an OLDER RAQBO schema before, run reset_old_setup.sql first (one time only).
 -- Safe to re-run: objects are created with IF NOT EXISTS / OR REPLACE where possible.
@@ -7,14 +7,14 @@
 
 
 -- ---------------------------------------------------------------------
--- 1. Profiles (one row per signed-in user; created automatically)
+-- 1. Profiles (one row per Firebase-authenticated user)
 -- ---------------------------------------------------------------------
 create table if not exists public.profiles (
-  id          uuid primary key references auth.users (id) on delete cascade,
+  id          text primary key,
   full_name   text check (char_length(full_name) <= 120),
   email       text,
   phone       text check (phone ~ '^\+923[0-9]{9}$'),
-  verified    boolean not null default false,   -- true after the user confirmed an email OTP and completed name + phone
+  verified    boolean not null default false,   -- true after the user verified an email or phone and completed name + phone
   verified_at timestamptz,
   role        text not null default 'user' check (role in ('user', 'admin')),
   created_at  timestamptz not null default now()
@@ -25,54 +25,39 @@ alter table public.profiles add column if not exists email text;
 alter table public.profiles add column if not exists verified boolean not null default false;
 alter table public.profiles add column if not exists verified_at timestamptz;
 
+-- Firebase UIDs are strings, not Supabase Auth UUIDs.
+create or replace function public.current_user_id()
+returns text
+language sql stable
+as $$ select auth.jwt() ->> 'sub'; $$;
+
 -- Is the current user a RAQBO admin? (security definer avoids RLS recursion)
 create or replace function public.is_admin()
 returns boolean
 language sql stable security definer set search_path = public
 as $$
-  select exists (select 1 from public.profiles where id = auth.uid() and role = 'admin');
+  select exists (select 1 from public.profiles where id = public.current_user_id() and role = 'admin');
 $$;
 
--- Create a profile whenever a new auth user is created (phone OTP or staff email)
-create or replace function public.handle_new_user()
-returns trigger
-language plpgsql security definer set search_path = public
-as $$
-begin
-  insert into public.profiles (id, email, full_name)
-  values (new.id, new.email, nullif(coalesce(new.raw_user_meta_data ->> 'full_name', new.raw_user_meta_data ->> 'name'), ''))
-  on conflict (id) do nothing;
-  return new;
-end;
-$$;
-
-drop trigger if exists on_auth_user_created on auth.users;
--- (trigger is created just below)
-create trigger on_auth_user_created
-  after insert on auth.users
-  for each row execute function public.handle_new_user();
-
--- Called by the website after the user enters the 6-digit email code.
--- Only works if the current login was confirmed with an email OTP (Google alone is not enough).
+-- Called by the website after Firebase has verified the user's email OTP.
 create or replace function public.complete_profile(p_full_name text, p_phone text)
 returns void
 language plpgsql security definer set search_path = public
 as $$
 declare
-  otp_confirmed boolean;
+  verified_identity boolean;
 begin
-  if auth.uid() is null then raise exception 'Please sign in first.'; end if;
-  select exists (
-    select 1 from jsonb_array_elements(coalesce(auth.jwt() -> 'amr', '[]'::jsonb)) e
-    where e ->> 'method' in ('otp', 'magiclink', 'email/signup')
-  ) into otp_confirmed;
-  if not otp_confirmed then raise exception 'Please verify the code sent to your email first.'; end if;
+  if public.current_user_id() is null then raise exception 'Please sign in first.'; end if;
+  verified_identity := coalesce((auth.jwt() ->> 'email_verified')::boolean, false);
+  if not verified_identity then raise exception 'Verify your email code in Firebase first.'; end if;
   if char_length(trim(coalesce(p_full_name, ''))) not between 2 and 120 then raise exception 'Please enter your full name.'; end if;
-  if p_phone !~ '^\+923[0-9]{9}$' then raise exception 'Please enter a valid Pakistani mobile number.'; end if;
-  update public.profiles
-     set full_name = trim(p_full_name), phone = p_phone, email = coalesce(auth.jwt() ->> 'email', email),
-         verified = true, verified_at = coalesce(verified_at, now())
-   where id = auth.uid();
+  if nullif(trim(p_phone), '') is not null and p_phone !~ '^\+923[0-9]{9}$' then raise exception 'Please enter a valid Pakistani mobile number.'; end if;
+  insert into public.profiles (id, full_name, phone, email, verified, verified_at)
+  values (public.current_user_id(), trim(p_full_name), nullif(trim(p_phone), ''), auth.jwt() ->> 'email', true, now())
+  on conflict (id) do update
+     set full_name = excluded.full_name, phone = excluded.phone,
+         email = coalesce(excluded.email, public.profiles.email), verified = true,
+         verified_at = coalesce(public.profiles.verified_at, now());
 end;
 $$;
 revoke execute on function public.complete_profile(text, text) from public, anon;
@@ -84,7 +69,7 @@ grant execute on function public.complete_profile(text, text) to authenticated;
 create table if not exists public.listings (
   id               uuid primary key default gen_random_uuid(),
   ref              text not null unique default ('RQ-LST-' || upper(substr(replace(gen_random_uuid()::text, '-', ''), 1, 8))),
-  owner_id         uuid references public.profiles (id) on delete set null,
+  owner_id         text references public.profiles (id) on delete set null,
   advertiser_name  text check (char_length(advertiser_name) <= 120),
   title            text not null check (char_length(title) between 5 and 80),
   description      text not null check (char_length(description) between 20 and 2000),
@@ -104,7 +89,7 @@ create table if not exists public.listings (
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
   published_at     timestamptz,
-  reviewed_by      uuid references public.profiles (id) on delete set null,
+  reviewed_by      text references public.profiles (id) on delete set null,
   reviewed_at      timestamptz
 );
 create index if not exists listings_status_idx on public.listings (status, published_at desc);
@@ -116,19 +101,18 @@ returns trigger
 language plpgsql security definer set search_path = public
 as $$
 begin
-  -- auth.uid() is null only for trusted server-side runs (SQL editor / service role).
-  if auth.uid() is not null and not public.is_admin() then
-    if (select count(*) from public.listings where owner_id = auth.uid() and created_at > now() - interval '1 day') >= 10 then
+  if public.current_user_id() is not null and not public.is_admin() then
+    if (select count(*) from public.listings where owner_id = public.current_user_id() and created_at > now() - interval '1 day') >= 10 then
       raise exception 'You can submit up to 10 listings per day. Please try again tomorrow.';
     end if;
-    new.owner_id     := auth.uid();
+    new.owner_id     := public.current_user_id();
     new.status       := 'pending';
     new.is_sample    := false;
     new.review_note  := null;
     new.published_at := null;
     new.reviewed_by  := null;
     new.reviewed_at  := null;
-    new.advertiser_name := coalesce((select full_name from public.profiles where id = auth.uid()), new.advertiser_name);
+    new.advertiser_name := coalesce((select full_name from public.profiles where id = public.current_user_id()), new.advertiser_name);
   end if;
   new.created_at := now();
   new.updated_at := now();
@@ -146,7 +130,7 @@ language plpgsql security definer set search_path = public
 as $$
 begin
   new.updated_at := now();
-  if auth.uid() is not null and not public.is_admin() then
+  if public.current_user_id() is not null and not public.is_admin() then
     -- Advertiser editing their own listing: system fields stay as they were,
     -- and the listing goes back to the review queue (hidden until approved again).
     new.id := old.id; new.ref := old.ref; new.owner_id := old.owner_id; new.is_sample := old.is_sample;
@@ -157,7 +141,7 @@ begin
     return new;
   end if;
   if new.status is distinct from old.status then
-    new.reviewed_by := auth.uid();
+    new.reviewed_by := public.current_user_id();
     new.reviewed_at := now();
     if new.status = 'published' then new.published_at := now(); end if;
   end if;
@@ -201,7 +185,7 @@ create table if not exists public.enquiries (
   message            text not null check (char_length(message) between 10 and 3000),
   preferred_contact  text check (preferred_contact in ('Phone call', 'WhatsApp', 'Email')),
   status             text not null default 'new' check (status in ('new', 'handled')),
-  user_id            uuid references public.profiles (id) on delete set null,
+  user_id            text references public.profiles (id) on delete set null,
   created_at         timestamptz not null default now()
 );
 
@@ -217,7 +201,7 @@ create table if not exists public.reports (
   reporter_name   text check (char_length(reporter_name) <= 120),
   reporter_phone  text check (char_length(reporter_phone) <= 20),
   status          text not null default 'open' check (status in ('open', 'reviewed')),
-  user_id         uuid references public.profiles (id) on delete set null,
+  user_id         text references public.profiles (id) on delete set null,
   created_at      timestamptz not null default now()
 );
 
@@ -228,15 +212,15 @@ language plpgsql security definer set search_path = public
 as $$
 declare recent int;
 begin
-  new.user_id := auth.uid();
+  new.user_id := public.current_user_id();
   new.created_at := now();
   if tg_table_name = 'enquiries' then new.status := 'new'; else new.status := 'open'; end if;
   -- Spam limit: 10 enquiries and 10 reports per user per hour (admins exempt).
-  if auth.uid() is not null and not public.is_admin() then
+  if public.current_user_id() is not null and not public.is_admin() then
     if tg_table_name = 'enquiries' then
-      select count(*) into recent from public.enquiries where user_id = auth.uid() and created_at > now() - interval '1 hour';
+      select count(*) into recent from public.enquiries where user_id = public.current_user_id() and created_at > now() - interval '1 hour';
     else
-      select count(*) into recent from public.reports where user_id = auth.uid() and created_at > now() - interval '1 hour';
+      select count(*) into recent from public.reports where user_id = public.current_user_id() and created_at > now() - interval '1 hour';
     end if;
     if recent >= 10 then raise exception 'Too many requests. Please try again in an hour.'; end if;
   end if;
@@ -254,7 +238,7 @@ create trigger reports_before_insert before insert on public.reports
 -- 6. Favorites (for signed-in users)
 -- ---------------------------------------------------------------------
 create table if not exists public.favorites (
-  user_id     uuid not null references public.profiles (id) on delete cascade default auth.uid(),
+  user_id     text not null references public.profiles (id) on delete cascade,
   listing_id  uuid not null references public.listings (id) on delete cascade,
   created_at  timestamptz not null default now(),
   primary key (user_id, listing_id)
@@ -273,7 +257,7 @@ alter table public.favorites     enable row level security;
 -- Profiles: users see/edit their own name; admins see everyone. Role cannot be changed from the website.
 drop policy if exists "profiles: read own or admin" on public.profiles;
 create policy "profiles: read own or admin" on public.profiles
-  for select using (id = auth.uid() or public.is_admin());
+  for select using (id = public.current_user_id() or public.is_admin());
 -- Profiles are changed only through complete_profile() (and by admins in the SQL editor).
 drop policy if exists "profiles: update own" on public.profiles;
 revoke insert, update, delete on public.profiles from anon, authenticated;
@@ -281,23 +265,23 @@ revoke insert, update, delete on public.profiles from anon, authenticated;
 -- Listings: everyone sees published; owners see their own; admins see all.
 drop policy if exists "listings: read" on public.listings;
 create policy "listings: read" on public.listings
-  for select using (status = 'published' or owner_id = auth.uid() or public.is_admin());
+  for select using (status = 'published' or owner_id = public.current_user_id() or public.is_admin());
 drop policy if exists "listings: owner inserts pending" on public.listings;
 create policy "listings: owner inserts pending" on public.listings
   for insert to authenticated with check (
-    owner_id = auth.uid() and status = 'pending'
-    and exists (select 1 from public.profiles p where p.id = auth.uid() and (p.verified or p.role = 'admin'))
+    owner_id = public.current_user_id() and status = 'pending'
+    and exists (select 1 from public.profiles p where p.id = public.current_user_id() and (p.verified or p.role = 'admin'))
   );
 drop policy if exists "listings: admin updates" on public.listings;
 create policy "listings: admin updates" on public.listings
   for update using (public.is_admin()) with check (public.is_admin());
 drop policy if exists "listings: owner edits own" on public.listings;
 create policy "listings: owner edits own" on public.listings
-  for update to authenticated using (owner_id = auth.uid() and not is_sample) with check (owner_id = auth.uid());
+  for update to authenticated using (owner_id = public.current_user_id() and not is_sample) with check (owner_id = public.current_user_id());
 drop policy if exists "listings: owner withdraws pending, admin deletes" on public.listings;
 drop policy if exists "listings: owner or admin deletes" on public.listings;
 create policy "listings: owner or admin deletes" on public.listings
-  for delete using (owner_id = auth.uid() or public.is_admin());
+  for delete using (owner_id = public.current_user_id() or public.is_admin());
 
 -- Listing media: visible whenever its listing is visible; owners add media to their own pending listings.
 drop policy if exists "media: read with listing" on public.listing_media;
@@ -306,20 +290,20 @@ create policy "media: read with listing" on public.listing_media
 drop policy if exists "media: owner adds to pending listing" on public.listing_media;
 create policy "media: owner adds to pending listing" on public.listing_media
   for insert to authenticated with check (
-    exists (select 1 from public.listings l where l.id = listing_id and l.owner_id = auth.uid() and l.status = 'pending')
-    and path like auth.uid()::text || '/%'
+    exists (select 1 from public.listings l where l.id = listing_id and l.owner_id = public.current_user_id() and l.status = 'pending')
+    and path like public.current_user_id() || '/%'
   );
 drop policy if exists "media: admin deletes" on public.listing_media;
 drop policy if exists "media: owner or admin deletes" on public.listing_media;
 create policy "media: owner or admin deletes" on public.listing_media
-  for delete using (public.is_admin() or exists (select 1 from public.listings l where l.id = listing_id and l.owner_id = auth.uid()));
+  for delete using (public.is_admin() or exists (select 1 from public.listings l where l.id = listing_id and l.owner_id = public.current_user_id()));
 
 -- Enquiries & reports: only signed-in, verified users may submit (spam protection); only admins read and update.
 drop policy if exists "enquiries: anyone submits" on public.enquiries;
 drop policy if exists "enquiries: verified users submit" on public.enquiries;
 create policy "enquiries: verified users submit" on public.enquiries
   for insert to authenticated with check (
-    status = 'new' and exists (select 1 from public.profiles p where p.id = auth.uid() and (p.verified or p.role = 'admin'))
+    status = 'new' and exists (select 1 from public.profiles p where p.id = public.current_user_id() and (p.verified or p.role = 'admin'))
   );
 drop policy if exists "enquiries: admin reads" on public.enquiries;
 create policy "enquiries: admin reads" on public.enquiries
@@ -334,7 +318,7 @@ create policy "reports: verified users report a published listing" on public.rep
   for insert to authenticated with check (
     status = 'open'
     and exists (select 1 from public.listings l where l.id = listing_id and l.status = 'published')
-    and exists (select 1 from public.profiles p where p.id = auth.uid() and (p.verified or p.role = 'admin'))
+    and exists (select 1 from public.profiles p where p.id = public.current_user_id() and (p.verified or p.role = 'admin'))
   );
 drop policy if exists "reports: admin reads" on public.reports;
 create policy "reports: admin reads" on public.reports
@@ -346,7 +330,7 @@ create policy "reports: admin updates" on public.reports
 -- Favorites: each user manages only their own.
 drop policy if exists "favorites: own" on public.favorites;
 create policy "favorites: own" on public.favorites
-  for all to authenticated using (user_id = auth.uid()) with check (user_id = auth.uid());
+  for all to authenticated using (user_id = public.current_user_id()) with check (user_id = public.current_user_id());
 
 -- =====================================================================
 -- 8. Storage bucket for photos and videos (private — served via signed URLs)
@@ -362,21 +346,21 @@ on conflict (id) do update
 drop policy if exists "listing-media: upload own folder" on storage.objects;
 create policy "listing-media: upload own folder" on storage.objects
   for insert to authenticated with check (
-    bucket_id = 'listing-media' and (storage.foldername(name))[1] = auth.uid()::text
+    bucket_id = 'listing-media' and (storage.foldername(name))[1] = public.current_user_id()
   );
 -- Files are readable only when their listing is readable (published, own, or admin).
 drop policy if exists "listing-media: read visible" on storage.objects;
 create policy "listing-media: read visible" on storage.objects
   for select using (
     bucket_id = 'listing-media' and (
-      (storage.foldername(name))[1] = auth.uid()::text
+      (storage.foldername(name))[1] = public.current_user_id()
       or exists (select 1 from public.listing_media m join public.listings l on l.id = m.listing_id where m.path = storage.objects.name)
     )
   );
 drop policy if exists "listing-media: owner or admin deletes" on storage.objects;
 create policy "listing-media: owner or admin deletes" on storage.objects
   for delete using (
-    bucket_id = 'listing-media' and ((storage.foldername(name))[1] = auth.uid()::text or public.is_admin())
+    bucket_id = 'listing-media' and ((storage.foldername(name))[1] = public.current_user_id() or public.is_admin())
   );
 
 -- =====================================================================
