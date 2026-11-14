@@ -5,6 +5,7 @@ import type { FormEvent, ReactNode } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { siFacebook, siInstagram, siWhatsapp, siYoutube } from "simple-icons";
 import PanoramaViewer from "@/components/PanoramaViewer";
 
 type Deal = "Buy" | "Rent";
@@ -274,17 +275,24 @@ const categories = [
 ];
 
 const services = [
-  { icon: "✳", title: "Property verification", text: "Understand what was checked, when, and by whom." },
-  { icon: "§", title: "Legal services", text: "Request property consultations with qualified professionals." },
-  { icon: "▧", title: "Documents & drafting", text: "Get help preparing property agreements and paperwork." },
-  { icon: "⌖", title: "Registry assistance", text: "Guidance for official records and transfer procedures." },
+  { icon: "shield", title: "Property verification", text: "Understand what was checked, when, and by whom." },
+  { icon: "scales", title: "Legal services", text: "Request property consultations with qualified professionals." },
+  { icon: "document", title: "Documents & drafting", text: "Get help preparing property agreements and paperwork." },
+  { icon: "registry", title: "Registry assistance", text: "Guidance for official records and transfer procedures." },
+] as const;
+
+const socialLinks = [
+  { name: "Instagram", href: "https://www.instagram.com/raqbo.official/", icon: siInstagram, color: "#E4405F" },
+  { name: "Facebook", href: "https://www.facebook.com/Raqbo.Official", icon: siFacebook, color: "#0866FF" },
+  { name: "YouTube", href: "https://www.youtube.com/channel/UC_mhp0yCXWpVgugfy0cevmw", icon: siYoutube, color: "#FF0000" },
+  { name: "WhatsApp", href: "https://wa.me/923123140622", icon: siWhatsapp, color: "#25D366" },
 ];
 
 function Icon({
   name,
   size = 20,
 }: {
-  name: "search" | "pin" | "heart" | "arrow" | "menu" | "close" | "bed" | "bath" | "area" | "shield" | "chevron";
+  name: "search" | "pin" | "heart" | "arrow" | "menu" | "close" | "bed" | "bath" | "area" | "shield" | "chevron" | "scales" | "document" | "registry";
   size?: number;
 }) {
   const paths: Record<typeof name, ReactNode> = {
@@ -299,6 +307,9 @@ function Icon({
     area: <><rect x="4" y="4" width="16" height="16" rx="2" /><path d="M9 4v3" /><path d="M15 4v3" /><path d="M4 9h3" /><path d="M4 15h3" /><path d="M20 9h-3" /><path d="M20 15h-3" /><path d="M9 20v-3" /><path d="M15 20v-3" /></>,
     shield: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11Z" /><path d="m9 12 2 2 4-4" /></>,
     chevron: <path d="m7 10 5 5 5-5" />,
+    scales: <><path d="M12 3v18" /><path d="M5 7h14" /><path d="m5 7-3 6h6L5 7Z" /><path d="m19 7-3 6h6l-3-6Z" /><path d="M8 21h8" /></>,
+    document: <><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" /><path d="M14 2v6h6" /><path d="M8 13h8" /><path d="M8 17h5" /></>,
+    registry: <><path d="m3 9 9-6 9 6" /><path d="M4 10h16" /><path d="M5 10v9" /><path d="M9 10v9" /><path d="M15 10v9" /><path d="M19 10v9" /><path d="M3 21h18" /><path d="M4 19h16" /></>,
   };
   return (
     <svg
@@ -349,6 +360,9 @@ function getServerFavoritesSnapshot() {
 
 export default function Home() {
   const router = useRouter();
+  const supabaseAuthConfigured = Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+  );
   const [deal, setDeal] = useState<Deal>("Buy");
   const [city, setCity] = useState("");
   const [propertyType, setPropertyType] = useState("Any property");
@@ -414,6 +428,12 @@ export default function Home() {
 
   const fetchLiveListings = useCallback(async (page: number, append: boolean, filters: ListingSearch) => {
     const requestNumber = ++listingRequestNumber.current;
+    if (!append) {
+      setLiveProperties([]);
+      setListingPages(1);
+      setListingPage(1);
+      setListingTotal(0);
+    }
     const params = new URLSearchParams({ page: String(page), limit: "12", sort: filters.sort });
     params.set("deal_type", filters.dealType.toLowerCase());
     if (filters.city.trim()) params.set("q", filters.city.trim());
@@ -534,7 +554,7 @@ export default function Home() {
   }, []);
 
   const visibleProperties = useMemo(() => {
-    const available = liveProperties.length ? liveProperties : properties;
+    const available = searched ? liveProperties : liveProperties.length ? liveProperties : properties;
     const data = available.filter((property) => property.dealType === deal.toLowerCase());
     const filtered = data.filter((property) => {
       const locationMatches = !city || property.city.toLowerCase().includes(city.toLowerCase()) ||
@@ -711,7 +731,7 @@ export default function Home() {
       const result = await response.json() as { message?: string; error?: string };
       if (!response.ok) throw new Error(result.message ?? result.error ?? "Could not send this message.");
       setModal("property");
-      showToast("Your message was sent. You can review it later from your account.");
+      showToast("Your request was sent to RAQBO. The team will coordinate the next step from your account.");
     } catch (error) {
       showToast(error instanceof Error ? error.message : "Could not send this message.");
     }
@@ -970,6 +990,7 @@ export default function Home() {
             <a href="#direct" onClick={() => setMobileMenu(false)}>RAQBO Direct</a>
             <a href="#services" onClick={() => setMobileMenu(false)}>Services <Icon name="chevron" size={14} /></a>
             <a href="#about" onClick={() => setMobileMenu(false)}>About</a>
+            <Link href="/deals" onClick={() => setMobileMenu(false)}>Deal room demo</Link>
             <a href="/saved" onClick={() => setMobileMenu(false)}>Saved properties</a>
             <a href="/account" onClick={() => setMobileMenu(false)}>My account</a>
           </nav>
@@ -1092,7 +1113,7 @@ export default function Home() {
               <div className="eyebrow"><span /> A GOOD PLACE TO BEGIN</div>
                   <h2>{searched ? "Properties for your search" : "A few places worth a look."}</h2>
                   <p>{searched
-                    ? `${liveProperties.length ? listingTotal : visibleProperties.length} ${deal.toLowerCase()} listing${(liveProperties.length ? listingTotal : visibleProperties.length) === 1 ? "" : "s"} found.`
+                    ? `${searched ? listingTotal : visibleProperties.length} ${deal.toLowerCase()} listing${(searched ? listingTotal : visibleProperties.length) === 1 ? "" : "s"} found.`
                     : "A considered selection to help you picture what comes next."}</p>
             </div>
             <label className="sort-control">Sort by
@@ -1174,8 +1195,8 @@ export default function Home() {
             {visibleProperties.length === 0 && (
               <div className="empty-results">
                 <span>⌕</span>
-                <h3>{liveProperties.length ? "No properties match those filters" : "No matching sample properties"}</h3>
-                <p>{liveProperties.length ? "Try another location, property type or budget." : "Try another location or budget. These examples are for preview only."}</p>
+                <h3>{searched ? "No properties match those filters" : "No matching sample properties"}</h3>
+                <p>{searched ? "Try another location, property type or budget." : "Try another location or budget. These examples are for preview only."}</p>
                 <button className="button button-dark" onClick={() => {
                   const filters = { ...currentSearch(), city: "", propertyType: "Any property", budget: "Any budget", minPrice: "", maxPrice: "", bedrooms: "", minSize: "", maxSize: "", ownerOnly: false };
                   setCity(""); setBudget("Any budget"); setOwnerOnly(false); setPropertyType("Any property");
@@ -1186,7 +1207,7 @@ export default function Home() {
               </div>
             )}
           </div>
-          {!liveProperties.length && <p className="demo-disclaimer">Illustrative sample listings for design preview only. Not live inventory. Prices, locations and status are not offers or verified property information.</p>}
+          {!searched && !liveProperties.length && <p className="demo-disclaimer">Illustrative sample listings for design preview only. Not live inventory. Prices, locations and status are not offers or verified property information.</p>}
           {liveProperties.length > 0 && searched && listingPage < listingPages && <button
             className="button button-dark load-more-button"
             disabled={loadingMoreListings}
@@ -1254,7 +1275,13 @@ export default function Home() {
               <li><span>✓</span> Freshness and check status displayed separately</li>
               <li><span>✓</span> No transaction commission on direct-owner deals</li>
             </ul>
-            <button className="button button-dark" onClick={() => { setOwnerOnly(true); setSearched(true); document.getElementById("properties")?.scrollIntoView({ behavior: "smooth" }); }}>
+            <button className="button button-dark" onClick={() => {
+              const filters = { ...currentSearch(), ownerOnly: true };
+              setOwnerOnly(true);
+              setSearched(true);
+              void fetchLiveListings(1, false, filters);
+              document.getElementById("properties")?.scrollIntoView({ behavior: "smooth" });
+            }}>
               Explore direct listings <Icon name="arrow" size={16} />
             </button>
             <small className="direct-note">A direct-owner label is not a guarantee of legal title.</small>
@@ -1283,7 +1310,7 @@ export default function Home() {
           <div className="service-grid">
             {services.map((service, index) => (
               <button className="service-card" key={service.title} onClick={() => setModal("service")}>
-                <span className="service-card-top"><span className="service-icon">{service.icon}</span><span>0{index + 1}</span></span>
+                <span className="service-card-top"><span className="service-icon"><Icon name={service.icon} size={20} /></span><span>0{index + 1}</span></span>
                 <h3>{service.title}</h3>
                 <p>{service.text}</p>
                 <span className="service-link">Make an enquiry <Icon name="arrow" size={15} /></span>
@@ -1340,6 +1367,25 @@ export default function Home() {
             <div className="footer-brand-block">
               <a className="brand footer-brand" href="#home"><span className="brand-mark">r</span><span className="brand-word">raqbo<span>.</span><small>PROPERTY, WITH CLARITY</small></span></a>
               <p>A more thoughtful way to find property and take your next step.</p>
+              <nav className="footer-socials" aria-label="RAQBO social media">
+                {socialLinks.map((social) => (
+                  <a
+                    className="footer-social-link"
+                    href={social.href}
+                    key={social.name}
+                    aria-label={`RAQBO on ${social.name}`}
+                    title={social.name}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{ color: social.color }}
+                  >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+                      <path d={social.icon.path} />
+                    </svg>
+                    <span>{social.name}</span>
+                  </a>
+                ))}
+              </nav>
             </div>
             <div className="footer-column"><h3>Explore</h3><a href="#properties">Buy property</a><a href="#properties" onClick={() => setDeal("Rent")}>Rent property</a><a href="#direct">RAQBO Direct</a><a href="#categories">Property types</a></div>
             <div className="footer-column"><h3>Services</h3><a href="#services">Verification</a><a href="#services">Legal services</a><a href="#services">Document drafting</a><a href="#services">Registry assistance</a></div>
@@ -1430,14 +1476,18 @@ export default function Home() {
               <h2 id="modal-title">Welcome to RAQBO.</h2>
               <p className="modal-lead">{pendingListingDraft
                 ? "Verify your phone to save your property details. After verification, you will continue directly to photo and video uploads."
-                : "Verify your phone to access account features. Live SMS delivery is not configured."}</p>
+                : supabaseAuthConfigured
+                  ? "Verify your phone to access account features. Supabase will send your code through the SMS provider configured for this project."
+                  : "Verify your phone to access account features. SMS delivery is not configured."}</p>
               <form className="modal-form" onSubmit={submitPhoneAuth}>
                 <label>Mobile number<input name="phone" required type="tel" disabled={otpRequested} defaultValue={otpPhone} placeholder="+92 3XX XXXXXXX" /></label>
                 {!otpRequested && <label className="consent-check"><input name="consent" type="checkbox" required /> I agree to receive a verification code by SMS.</label>}
                 {otpRequested && <label>6-digit verification code<input name="code" required inputMode="numeric" pattern="[0-9]{6}" maxLength={6} autoComplete="one-time-code" /></label>}
                 <button className="button button-primary modal-submit" type="submit" disabled={otpBusy}>{otpBusy ? "Please wait…" : otpRequested ? "Verify and sign in" : "Send verification code"} <Icon name="arrow" size={16} /></button>
                 {otpRequested && <button className="report-button" type="button" onClick={() => { setOtpRequested(false); setOtpPhone(""); }}>Use another number</button>}
-                <small>Development mode displays a test code in this browser. Production SMS requires an approved provider.</small>
+                <small>{supabaseAuthConfigured
+                  ? "Verification codes are delivered by the SMS provider configured in Supabase."
+                  : "Configure a Supabase SMS provider for delivery. Local development OTP is available only when explicitly enabled."}</small>
               </form>
             </>}
             {modal === "service" && <>
@@ -1492,8 +1542,8 @@ export default function Home() {
                   ? <button className="button button-primary" onClick={() => {
                     if (signedIn) setModal("inquiry");
                     else { setPendingContact(true); setModal("signin"); }
-                  }}>Message advertiser <Icon name="arrow" size={15} /></button>
-                  : <button className="button button-primary" onClick={() => showToast("Messaging is available on live listings only.")}>Message advertiser <Icon name="arrow" size={15} /></button>}
+                  }}>Request through RAQBO <Icon name="arrow" size={15} /></button>
+                  : <button className="button button-primary" onClick={() => showToast("Requests are available on live listings only.")}>Request through RAQBO <Icon name="arrow" size={15} /></button>}
                 <button className="report-button" onClick={() => setModal("report")}>Report listing</button>
                 <button className="report-button" onClick={() => void shareSelectedProperty()}>Share</button>
                 <a className="report-button" href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${selectedProperty.area}, ${selectedProperty.city}`)}`} target="_blank" rel="noreferrer">Open map</a>
@@ -1507,11 +1557,11 @@ export default function Home() {
               </div>
             </>}
             {modal === "inquiry" && selectedProperty && <form className="modal-form" onSubmit={submitInquiry}>
-              <h2 id="modal-title">Message the advertiser</h2>
-              <p className="modal-lead">Your message will be attached to “{selectedProperty.title}”. Your phone number is not shown publicly.</p>
-              <label>Message<textarea name="message" required minLength={10} maxLength={2000} rows={5} placeholder="Ask a question or request a viewing." /></label>
-              <label className="consent-check"><input name="consent" type="checkbox" required /> I agree that RAQBO may share this message with the listing advertiser so they can respond.</label>
-              <button className="button button-primary modal-submit" type="submit">Send message <Icon name="arrow" size={16} /></button>
+              <h2 id="modal-title">Start with the RAQBO team</h2>
+              <p className="modal-lead">Tell us what you need about “{selectedProperty.title}”. RAQBO will coordinate with the property owner; your contact details and messages will not be shared directly.</p>
+              <label>Request<textarea name="message" required minLength={10} maxLength={2000} rows={5} placeholder="Ask a question, request a viewing, or tell us you want to make an offer." /></label>
+              <label className="consent-check"><input name="consent" type="checkbox" required /> I agree that RAQBO may use this request to coordinate with the property owner and send me updates in my account.</label>
+              <button className="button button-primary modal-submit" type="submit">Send request to RAQBO <Icon name="arrow" size={16} /></button>
             </form>}
             {modal === "report" && <form className="modal-form" onSubmit={submitReport}>
               <h2 id="modal-title">Report this listing</h2>

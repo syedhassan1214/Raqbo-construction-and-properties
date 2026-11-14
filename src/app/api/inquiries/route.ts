@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       .run(id, listing.id, user.id, body.message);
     logAudit(user.id, "inquiry.created", "inquiry", id, { listingId: listing.id });
     return json(
-      { id, status: "new", message: "Your enquiry has been recorded. Owner notifications require a configured delivery provider." },
+      { id, status: "new", message: "Your request has been sent to the RAQBO team. The buyer and property owner will not contact each other directly." },
       201,
     );
   } catch (error) {

@@ -26,6 +26,11 @@ type ServiceRequest = {
   id: string; name: string; city: string; service_type: string; message: string; status: string;
   assigned_to: string | null; assignee_name: string | null;
 };
+type DealInquiry = {
+  id: string; listing_title: string; city: string; locality: string; message: string; status: string;
+  buyer_update: string | null; owner_update: string | null; assigned_to: string | null;
+  assignee_name: string | null; buyer_name: string; owner_name: string | null; created_at: string;
+};
 type ServiceAssignee = { id: string; display_name: string; email: string | null };
 type Report = {
   id: string; listing_id: string | null; listing_title: string | null; city: string | null;
@@ -38,7 +43,7 @@ type AuditEntry = {
   details: Record<string, unknown>;
 };
 type QueueData = Record<string, unknown>[];
-type Tab = "overview" | "listings" | "verification" | "services" | "reports" | "users" | "deletions" | "audit" | "media";
+type Tab = "overview" | "listings" | "inquiries" | "verification" | "services" | "reports" | "users" | "deletions" | "audit" | "media";
 type MediaAsset = {
   id: string; listing_title: string; city: string; locality: string;
   asset_type: ListingMedia["assetType"]; file_size: number; fileUrl: string;
@@ -47,6 +52,7 @@ type MediaAsset = {
 const tabs: { id: Tab; label: string; roles: string[] }[] = [
   { id: "overview", label: "Overview", roles: ["admin", "moderator", "verifier", "support", "finance"] },
   { id: "listings", label: "Listings", roles: ["admin", "moderator"] },
+  { id: "inquiries", label: "Deal coordination", roles: ["admin", "support"] },
   { id: "verification", label: "Verification", roles: ["admin", "verifier"] },
   { id: "media", label: "Media assets", roles: ["admin", "moderator"] },
   { id: "services", label: "Service requests", roles: ["admin", "support"] },
@@ -93,6 +99,7 @@ export default function AdminPage() {
       } else {
         const routes: Record<Exclude<Tab, "overview">, string> = {
           listings: `/api/admin/listings?status=${encodeURIComponent(selectedListingStatus)}`,
+          inquiries: "/api/admin/inquiries",
           verification: "/api/admin/verification",
           services: "/api/admin/service-requests",
           reports: "/api/admin/reports",
@@ -103,14 +110,14 @@ export default function AdminPage() {
         };
         const result = await api<Record<string, QueueData> & { assignees?: ServiceAssignee[] }>(routes[selected]);
         const key: Record<Exclude<Tab, "overview">, string> = {
-          listings: "listings", verification: "cases", services: "requests",
+          listings: "listings", inquiries: "inquiries", verification: "cases", services: "requests",
           reports: "reports", users: "users", deletions: "requests",
           audit: "logs",
           media: "assets",
         };
         const rows = result[key[selected]] ?? [];
         setData(rows);
-        if (selected === "services") {
+        if (selected === "services" || selected === "inquiries") {
           setServiceAssignees(result.assignees ?? []);
           setAssignments(Object.fromEntries(rows.map((row) => [
             String(row.id),
@@ -374,6 +381,18 @@ function AdminQueue({
           <small>Manual review only—no malware scanning or automated AI analysis is configured.</small>
         </article>;
       }
+      if (tab === "inquiries") {
+        const item = row as DealInquiry;
+        return <InquiryCoordinationCard
+          key={id}
+          item={item}
+          busy={busy}
+          assignees={serviceAssignees}
+          assignee={assignments[id] ?? ""}
+          setAssignee={(value) => setAssignments({ ...assignments, [id]: value })}
+          update={update}
+        />;
+      }
       if (tab === "verification") {
         const item = row as VerificationCase;
         const pendingSecond = item.status === "pending_second_review";
@@ -454,4 +473,49 @@ function AdminQueue({
       return null;
     })}
   </div>;
+}
+
+function InquiryCoordinationCard({
+  item,
+  busy,
+  assignees,
+  assignee,
+  setAssignee,
+  update,
+}: {
+  item: DealInquiry;
+  busy: boolean;
+  assignees: ServiceAssignee[];
+  assignee: string;
+  setAssignee: (value: string) => void;
+  update: (url: string, body: Record<string, unknown>, success: string) => Promise<void>;
+}) {
+  const [buyerUpdate, setBuyerUpdate] = useState(item.buyer_update ?? "");
+  const [ownerUpdate, setOwnerUpdate] = useState(item.owner_update ?? "");
+  const url = `/api/admin/inquiries/${item.id}`;
+  const updatesValid = [buyerUpdate, ownerUpdate].every((value) =>
+    !value.trim() || value.trim().length >= 3);
+
+  return <article className="admin-card" key={item.id}>
+    <div className="admin-card-heading">
+      <div><h2>{item.listing_title}</h2><p>{item.locality}, {item.city} · {item.buyer_name} → {item.owner_name || "Owner account unavailable"} · {new Date(item.created_at).toLocaleString()}</p></div>
+      <span className="admin-status">{item.status}</span>
+    </div>
+    <p><b>Private request from buyer:</b> {item.message}</p>
+    <label>Coordinator assignment<select value={assignee} onChange={(event) => setAssignee(event.target.value)}>
+      <option value="">Unassigned</option>
+      {assignees.map((staff) => <option key={staff.id} value={staff.id}>{staff.display_name || staff.email || staff.id}</option>)}
+    </select></label>
+    <label>Update for buyer<textarea value={buyerUpdate} onChange={(event) => setBuyerUpdate(event.target.value)} maxLength={1000} placeholder="Only the buyer will see this update." /></label>
+    <label>Update for property owner<textarea value={ownerUpdate} onChange={(event) => setOwnerUpdate(event.target.value)} maxLength={1000} placeholder="Only the property owner will see this update." /></label>
+    <p>These updates are private to each account. Do not include personal contact details; keep all coordination on RAQBO.</p>
+    <div className="admin-actions">
+      <button disabled={busy || !updatesValid} onClick={() => void update(url, {
+        buyerUpdate: buyerUpdate.trim() || null,
+        ownerUpdate: ownerUpdate.trim() || null,
+        assignedTo: assignee || null,
+      }, "Private coordination updates saved.")}>Save updates</button>
+      {(["read", "replied", "closed", "flagged"] as const).map((status) => <button key={status} disabled={busy || item.status === status} onClick={() => void update(url, { status }, `Request marked ${status}.`)}>{status === "read" ? "Start coordination" : status.replaceAll("_", " ")}</button>)}
+    </div>
+  </article>;
 }

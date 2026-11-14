@@ -20,8 +20,9 @@ type Listing = {
 type Inquiry = {
   id: string;
   listing_title: string;
-  other_party_name: string;
   message: string;
+  coordinator_update: string | null;
+  other_party_name: string;
   status: string;
   created_at: string;
   direction: "sent" | "received";
@@ -243,8 +244,9 @@ export default function AccountPage() {
               </div>
             </article>)}
           </div> : <div className="account-empty"><h2>No listings yet</h2><p>Start a listing and you can manage drafts and review status here.</p><Link className="button button-primary" href="/">List your property</Link></div>}
-          <section className="account-inquiries"><h2>Messages</h2>
-            {inquiries.length ? inquiries.map((inquiry) => <article key={inquiry.id}><b>{inquiry.listing_title} · {inquiry.direction === "sent" ? "Sent" : "Received"}</b><span>{inquiry.other_party_name || "RAQBO member"} · {new Date(inquiry.created_at).toLocaleString()}</span><p>{inquiry.message}</p><small>Status: {inquiry.status}</small></article>) : <p>No messages yet.</p>}
+          <section className="account-inquiries"><h2>RAQBO coordination</h2>
+            <p>Property requests and updates are handled by the RAQBO team. Buyer and owner contact details are not shared with each other.</p>
+            {inquiries.length ? inquiries.map((inquiry) => <article key={inquiry.id}><b>{inquiry.listing_title} · {inquiry.direction === "sent" ? "Your request" : "Property interest"}</b><span>{inquiry.other_party_name} · {new Date(inquiry.created_at).toLocaleString()}</span><p>{inquiry.message}</p>{inquiry.coordinator_update && <p><b>RAQBO update:</b> {inquiry.coordinator_update}</p>}<small>Status: {inquiry.status.replaceAll("_", " ")}</small></article>) : <p>No coordination requests yet.</p>}
           </section>
           <section className="account-danger"><div><h2>Account and privacy</h2><p>Request account deletion for manual review under RAQBO&apos;s retention policy.</p></div><button disabled={busy} onClick={() => void requestDeletion()}>Request account deletion</button></section>
         </> : <form className="account-auth-card" onSubmit={(event) => void authenticate(event)}>

@@ -35,6 +35,7 @@ database.exec(`
     email TEXT UNIQUE,
     password_hash TEXT,
     phone_hash TEXT UNIQUE,
+    supabase_auth_id TEXT,
     phone_encrypted TEXT,
     display_name TEXT NOT NULL DEFAULT '',
     status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'deletion_requested', 'deleted')),
@@ -230,6 +231,30 @@ database.exec(`
     status TEXT NOT NULL DEFAULT 'requested' CHECK (status IN ('requested', 'in_progress', 'completed', 'rejected')),
     created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
   );
+`);
+
+const inquiryColumns = database.prepare("PRAGMA table_info(inquiries)").all() as { name: string }[];
+if (!inquiryColumns.some((column) => column.name === "buyer_update")) {
+  database.exec("ALTER TABLE inquiries ADD COLUMN buyer_update TEXT");
+}
+if (!inquiryColumns.some((column) => column.name === "owner_update")) {
+  database.exec("ALTER TABLE inquiries ADD COLUMN owner_update TEXT");
+}
+if (!inquiryColumns.some((column) => column.name === "assigned_to")) {
+  database.exec("ALTER TABLE inquiries ADD COLUMN assigned_to TEXT REFERENCES users(id) ON DELETE SET NULL");
+}
+database.exec(`
+  CREATE INDEX IF NOT EXISTS inquiries_coordination_queue
+    ON inquiries(status, created_at DESC);
+`);
+
+const userColumns = database.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+if (!userColumns.some((column) => column.name === "supabase_auth_id")) {
+  database.exec("ALTER TABLE users ADD COLUMN supabase_auth_id TEXT");
+}
+database.exec(`
+  CREATE UNIQUE INDEX IF NOT EXISTS users_supabase_auth_id
+    ON users(supabase_auth_id) WHERE supabase_auth_id IS NOT NULL;
 `);
 
 const propertyMediaSchema = database

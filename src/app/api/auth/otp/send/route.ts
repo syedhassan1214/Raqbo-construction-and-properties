@@ -3,6 +3,7 @@ import { makeOtp, hashIdentifier, normalizePhone } from "@/lib/server/auth";
 import { database, randomUUID } from "@/lib/server/database";
 import { enforceRateLimit, errorResponse, json, readJson, requireSameOrigin, HttpError, requestAddress } from "@/lib/server/http";
 import { otpSendSchema } from "@/lib/server/schemas";
+import { getSupabaseServerClient, isSupabaseConfigured } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +17,25 @@ export async function POST(request: NextRequest) {
 
     enforceRateLimit(`otp-ip:${requestAddress(request)}`, 12, 60 * 60 * 1000);
     enforceRateLimit(`otp-phone:${phoneHash}`, 3, 15 * 60 * 1000);
+
+    if (isSupabaseConfigured()) {
+      const supabase = await getSupabaseServerClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        phone,
+        options: { shouldCreateUser: true },
+      });
+      if (error) {
+        console.error("Supabase phone OTP send failed:", error.message);
+        throw new HttpError(
+          error.status === 429 ? 429 : 502,
+          error.status === 429 ? "otp_rate_limited" : "otp_delivery_failed",
+          error.status === 429
+            ? "Too many verification requests. Please try again later."
+            : "Supabase could not send a verification code. Check the Supabase SMS provider configuration.",
+        );
+      }
+      return json({ ok: true, message: "A verification code has been sent." }, 202);
+    }
 
     const otpEnabledInDevelopment =
       process.env.NODE_ENV !== "production" && process.env.RAQBO_ALLOW_DEV_OTP === "true";

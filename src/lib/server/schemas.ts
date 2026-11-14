@@ -51,6 +51,16 @@ export const inquirySchema = z.object({
   consent: z.literal(true, { error: "Contact consent is required." }),
 });
 
+export const inquiryStatusSchema = z.object({
+  status: z.enum(["new", "read", "replied", "closed", "flagged"]).optional(),
+  buyerUpdate: z.string().trim().min(3).max(1000).nullable().optional(),
+  ownerUpdate: z.string().trim().min(3).max(1000).nullable().optional(),
+  assignedTo: z.string().uuid().nullable().optional(),
+}).refine((value) => value.status !== undefined || value.buyerUpdate !== undefined ||
+  value.ownerUpdate !== undefined || value.assignedTo !== undefined, {
+  message: "Provide a status, update, or assignee change.",
+});
+
 export const reportSchema = z.object({
   listingId: z.string().uuid().optional(),
   category: z.enum([
